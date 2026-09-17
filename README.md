@@ -1,0 +1,316 @@
+# API_TEATRO — Teatro Maldonado de Tunja
+
+API REST para programar funciones y vender boletería en el Teatro Maldonado de
+Tunja. Hecha con Node.js y Express, con datos en memoria y documentada con
+OpenAPI 3.0.3.
+
+## Objetivo y contexto
+
+El teatro programa obras, conciertos, cine y actos institucionales en una sala
+única, con localidades a distintas distancias del escenario. La API gestiona el
+flujo completo, desde el catálogo de eventos hasta la validación de la boleta en
+la puerta. El precio, el código y el estado de las boletas los calcula el
+servidor. Es un trabajo académico, sin base de datos ni autenticación.
+
+## Recursos
+
+| Recurso | Qué representa |
+| ------- | -------------- |
+| **Asistentes** | Personas que compran boletas. Documento y email únicos. |
+| **Eventos** | Espectáculos: obra, concierto, cine o institucional. Pueden desactivarse. |
+| **Localidades** | Zonas de la sala (Platea Preferencial, Platea General, Balcón). El `orden` indica la cercanía al escenario: 1 es la más cercana. |
+| **Funciones** | Presentación de un evento en una fecha y hora, con tarifas por localidad, descuentos habilitados y estado. |
+| **Boletas** | Venta de una butaca a un asistente para una función. El servidor calcula el precio, genera el código y controla el estado. |
+
+## Relaciones
+
+```
+   ┌────────────┐
+   │  EVENTOS   │
+   └─────┬──────┘
+         │ 1
+         │
+         │ N
+   ┌─────┴──────┐        tarifas        ┌──────────────┐
+   │  FUNCIONES │◄─────────────────────►│ LOCALIDADES  │
+   └─────┬──────┘   (precio por zona)   └──────┬───────┘
+         │ 1                                   │ 1
+         │                                     │
+         │ N                                   │ N
+   ┌─────┴──────────────────────────────────────┴───────┐
+   │                     BOLETAS                        │
+   └────────────────────────┬───────────────────────────┘
+                            │ N
+                            │
+                            │ 1
+                     ┌──────┴───────┐
+                     │  ASISTENTES  │
+                     └──────────────┘
+```
+
+## Reglas de negocio
+
+**Agenda**
+- No puede haber dos funciones con la misma fecha y hora (sala única).
+- Una función cancelada libera su franja.
+- No se programan funciones con fecha pasada ni de eventos inactivos.
+
+**Tarifas y precios**
+- Cada función tiene tarifa para todas las localidades activas, sin duplicados.
+- Cada localidad de las tarifas debe existir y estar activa.
+- A menor `orden`, precio estrictamente mayor. Se comparan todos los pares de localidades.
+- El precio de la boleta es la tarifa de su localidad menos el descuento, redondeado a entero.
+- Descuentos: `ninguno` 0 %, `estudiante` 20 %, `infantil` 50 %, `adultoMayor` 30 %.
+- El descuento aplicado debe estar habilitado en la función.
+
+**Venta**
+- La combinación función + localidad + fila + número es única.
+- Una boleta cancelada libera su butaca.
+- Solo se venden boletas de funciones `en_venta`.
+- La butaca debe existir dentro de la localidad.
+- No se supera el aforo de la localidad en una función.
+- Máximo 6 boletas no canceladas por asistente y función.
+- `documento` y `email` de asistente únicos; `codigo` y `orden` de localidad únicos.
+- `capacidad` = `filas × butacasPorFila`, calculada por el servidor.
+
+**Estados**
+
+```
+Funciones: programada → en_venta, cancelada
+           en_venta   → agotada, en_curso, cancelada
+           agotada    → en_curso, cancelada
+           en_curso   → finalizada
+Boletas:   reservada  → pagada, cancelada
+           pagada     → usada, cancelada
+```
+
+- `finalizada`, `cancelada` y `usada` son estados terminales.
+- Pasar una función a `en_venta` exige tarifas completas y coherentes.
+- Una boleta solo pasa a `usada` si la función está `en_curso`.
+- No se modifican funciones `en_curso`, `finalizada` ni `cancelada`.
+- No se elimina una función con boletas no canceladas.
+- Solo se modifican boletas `reservada`; solo se eliminan `reservada` o `cancelada`.
+
+## Medidas de seguridad
+
+| Medida | Implementación |
+| ------ | -------------- |
+| helmet | Cabeceras de seguridad en todas las respuestas |
+| `x-powered-by` | Deshabilitado con `app.disable("x-powered-by")` |
+| CORS | Origen único desde `ALLOWED_ORIGIN`; métodos GET, POST, PUT, PATCH, DELETE |
+| Rate limiting | 100 peticiones cada 15 min por IP en `/api` (`RATE_LIMIT_MAX`) |
+| Límite del cuerpo | `express.json({ limit: "10kb" })` |
+| express-validator | Tipos, rangos, formatos y listas blancas en `tipo`, `clasificacionEdad`, `tipoDescuento` y estados; textos sin `<` ni `>` |
+| Mass Assignment | Los controllers leen solo `matchedData`, nunca `req.body` |
+| Campos del servidor | `precio`, `codigo` y `estado` de boletas; `estado` de funciones; `activo`, `activa` y `capacidad` |
+| Manejo de errores | Mensajes genéricos `{ mensaje }`; el detalle solo se registra en consola |
+
+## Instalación y ejecución
+
+Requisitos: Node.js 18 o superior (probado en 24.15.0) y npm.
+
+```bash
+npm install
+cp .env.example .env
+npm run dev     # desarrollo (nodemon)
+npm start       # producción
+```
+
+Los comandos se ejecutan desde la raíz del proyecto. El servidor queda en
+`http://localhost:3000`.
+
+| Variable | Por defecto | Uso |
+| -------- | ----------- | --- |
+| `PORT` | `3000` | Puerto |
+| `ALLOWED_ORIGIN` | `http://localhost:3000` | Origen permitido por CORS |
+| `RATE_LIMIT_MAX` | `100` | Peticiones por ventana de 15 min |
+
+`.env` está en `.gitignore`; `.env.example` es la plantilla.
+
+## Estructura
+
+```
+API_TEATRO/
+├── .env.example
+├── .gitignore
+├── README.md
+├── package.json
+└── src/
+    ├── app.js
+    ├── controllers/
+    │   ├── asistentes.controller.js
+    │   ├── boletas.controller.js
+    │   ├── eventos.controller.js
+    │   ├── funciones.controller.js
+    │   └── localidades.controller.js
+    ├── data/
+    │   ├── asistentes.js
+    │   ├── boletas.js
+    │   ├── eventos.js
+    │   ├── funciones.js
+    │   └── localidades.js
+    ├── docs/
+    │   └── swagger.js
+    ├── middlewares/
+    │   ├── asistentes.validator.js
+    │   ├── boletas.validator.js
+    │   ├── errores.middleware.js
+    │   ├── eventos.validator.js
+    │   ├── funciones.validator.js
+    │   ├── localidades.validator.js
+    │   └── validar.middleware.js
+    ├── routes/
+    │   ├── asistentes.routes.js
+    │   ├── boletas.routes.js
+    │   ├── eventos.routes.js
+    │   ├── funciones.routes.js
+    │   └── localidades.routes.js
+    └── services/
+        ├── asistentes.service.js
+        ├── boletas.service.js
+        ├── eventos.service.js
+        ├── funciones.service.js
+        └── localidades.service.js
+```
+
+Flujo: `routes → validadores → controllers → services → data`. Los controllers
+no acceden a los datos; solo los services importan desde `src/data/`.
+
+## Endpoints
+
+38 endpoints en 18 rutas. Swagger UI: <http://localhost:3000/api-docs> ·
+OpenAPI: <http://localhost:3000/openapi.json>
+
+**Generales**
+
+| Método | Ruta | Descripción |
+| ------ | ---- | ----------- |
+| GET | `/` | Estado de la API |
+| GET | `/api-docs` | Swagger UI |
+| GET | `/openapi.json` | Definición OpenAPI 3.0.3 |
+
+**Asistentes**
+
+| Método | Ruta | Descripción |
+| ------ | ---- | ----------- |
+| GET | `/api/asistentes` | Lista los asistentes |
+| GET | `/api/asistentes/:id` | Obtiene un asistente |
+| POST | `/api/asistentes` | Crea un asistente |
+| PUT | `/api/asistentes/:id` | Reemplaza un asistente |
+| PATCH | `/api/asistentes/:id` | Actualiza parcialmente un asistente |
+| DELETE | `/api/asistentes/:id` | Elimina un asistente |
+
+**Eventos**
+
+| Método | Ruta | Descripción |
+| ------ | ---- | ----------- |
+| GET | `/api/eventos` | Lista los eventos |
+| GET | `/api/eventos/:id` | Obtiene un evento |
+| POST | `/api/eventos` | Crea un evento activo |
+| PUT | `/api/eventos/:id` | Reemplaza un evento, conserva `activo` |
+| PATCH | `/api/eventos/:id` | Actualiza parcialmente un evento |
+| PATCH | `/api/eventos/:id/estado` | Activa o desactiva un evento |
+| DELETE | `/api/eventos/:id` | Elimina un evento |
+
+**Localidades**
+
+| Método | Ruta | Descripción |
+| ------ | ---- | ----------- |
+| GET | `/api/localidades` | Lista las localidades |
+| GET | `/api/localidades/:id` | Obtiene una localidad |
+| POST | `/api/localidades` | Crea una localidad y calcula su capacidad |
+| PUT | `/api/localidades/:id` | Reemplaza una localidad y recalcula su capacidad |
+| PATCH | `/api/localidades/:id` | Actualiza parcialmente una localidad |
+| PATCH | `/api/localidades/:id/estado` | Activa o desactiva una localidad |
+| DELETE | `/api/localidades/:id` | Elimina una localidad |
+
+**Funciones**
+
+| Método | Ruta | Descripción |
+| ------ | ---- | ----------- |
+| GET | `/api/funciones` | Lista las funciones |
+| GET | `/api/funciones/evento/:eventoId` | Funciones de un evento |
+| GET | `/api/funciones/:id` | Obtiene una función |
+| GET | `/api/funciones/:id/tarifas` | Tarifas ordenadas por cercanía y descuentos habilitados |
+| POST | `/api/funciones` | Crea una función en estado `programada` |
+| PUT | `/api/funciones/:id` | Reemplaza una función, conserva el estado |
+| PATCH | `/api/funciones/:id` | Actualiza parcialmente una función |
+| PATCH | `/api/funciones/:id/estado` | Cambia el estado de una función |
+| DELETE | `/api/funciones/:id` | Elimina una función sin boletas vendidas |
+
+**Boletas**
+
+| Método | Ruta | Descripción |
+| ------ | ---- | ----------- |
+| GET | `/api/boletas` | Lista las boletas |
+| GET | `/api/boletas/asistente/:asistenteId` | Boletas de un asistente |
+| GET | `/api/boletas/funcion/:funcionId` | Boletas de una función |
+| GET | `/api/boletas/:id` | Obtiene una boleta |
+| POST | `/api/boletas` | Vende una boleta; el servidor calcula precio y código |
+| PUT | `/api/boletas/:id` | Reemplaza una boleta reservada y recalcula el precio |
+| PATCH | `/api/boletas/:id` | Actualiza parcialmente una boleta reservada |
+| PATCH | `/api/boletas/:id/estado` | Cambia el estado de una boleta |
+| DELETE | `/api/boletas/:id` | Elimina una boleta reservada o cancelada |
+
+## Análisis de seguridad
+
+Las evidencias y capturas de cada prueba están en el informe PDF entregado.
+
+| Técnica | Herramienta | Alcance | Resultado |
+| ------- | ----------- | ------- | --------- |
+| SCA | `npm audit` | 143 paquetes | 0 vulnerabilidades |
+| SAST | Semgrep 1.172.0 | 73 reglas, 30 archivos | 0 hallazgos |
+| SAST manual | Revisión de código | `src/` completo | 2 hallazgos, corregidos |
+| DAST | OWASP ZAP 2.17.0 | 39 URLs, Active Scan sobre `/api` | 2 alertas, ambas falsos positivos |
+
+**SCA.** Sin vulnerabilidades. `npm audit fix` no modificó el
+`package-lock.json`. Aviso de obsolescencia, sin vulnerabilidad asociada, en
+`glob@11.1.0` (dependencia transitiva de `swagger-jsdoc`).
+
+**SAST.** Semgrep con `p/javascript`, `p/nodejs` y `p/owasp-top-ten`. La revisión
+manual comprobó el uso de `req.body`, concatenaciones de entrada, secretos, fugas
+en errores y endpoints sin validación. Un barrido de 419 peticiones hostiles no
+produjo ningún 5xx ni fuga de stack trace.
+
+**DAST.** Escaneo del 16/09/2026 importando `openapi.json`, con
+`RATE_LIMIT_MAX=100000` solo durante el escaneo. 41 % de respuestas 2xx, 58 %
+4xx y ningún 5xx. La regla DOM XSS no se ejecutó porque no aplica a una API que
+devuelve JSON.
+
+### Hallazgos
+
+| ID | Hallazgo | Corrección | Verificación |
+| -- | -------- | ---------- | ------------ |
+| SEC-01 | Un cuerpo mayor de 10 kb devolvía 500 en vez de 413 | `manejarError` respeta el código 4xx de los errores de `express.json` (413, 400, 415) con mensaje fijo | 12 kb → 413; JSON mal formado → 400 |
+| SAST-01 | `nombre`, `titulo` y `descripcion` aceptaban HTML | Validación `.matches(/^[^<>]*$/)` en los campos de texto libre | `<img src=x onerror=...>` → 400; nombres con tildes y apóstrofos → 201 |
+| SAST-02 | Las peticiones rechazadas se registraban como `Error no controlado` | Errores 4xx con `console.warn` (código, método y ruta); 5xx con `console.error` | Barrido repetido: 0 errores, 45 avisos |
+| DAST-01 | Path Traversal (High, confianza Low) en `PUT /api/eventos/{id}` | Falso positivo: la diferencia de respuesta viene de la validación; la API no accede al sistema de archivos | `../../../../etc/passwd` → 400 |
+| DAST-02 | User Agent Fuzzer (Informational) en `POST /api/eventos` | Falso positivo: cada POST crea un id distinto | GET con 3 User-Agent → mismo cuerpo |
+
+### Pruebas automatizadas
+
+| Suite | Comprobaciones |
+| ----- | -------------- |
+| Asistentes, eventos y localidades | 57 |
+| Funciones | 52 |
+| Boletas | 55 |
+| Límites de venta y regresión | 22 |
+| Checklist de seguridad (35 casos) | 38 |
+| **Total** | **224, 0 fallos** |
+
+## Limitaciones conocidas
+
+- Sin persistencia: los datos se reinician con el servidor.
+- Sin autenticación ni autorización.
+- Sin HTTPS: `Strict-Transport-Security` solo tiene efecto sobre TLS.
+- Concurrencia: Node procesa las peticiones en un solo hilo y las operaciones
+  sobre los arrays son síncronas. Con una base de datos haría falta una
+  transacción o un índice único para asignar butacas.
+
+## Integrantes
+
+- Juan Sebastián Bonilla León
+- Juan Camilo Calderón Delgado
+- Silvana Sofia Siza Soriano
+- Cristian Emanuel Hernández Araque
+- Cristian Rodrigo Amaya Torres
