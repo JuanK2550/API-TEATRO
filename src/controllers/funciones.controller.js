@@ -326,7 +326,7 @@ const cambiarEstadoFuncion = (req, res) => {
 
 // ========================================
 // DELETE
-// Una función con boletas vendidas no se elimina
+// Una función con boletas asociadas no se elimina, aunque estén canceladas
 // ========================================
 const eliminarFuncion = (req, res) => {
   const { id } = req.params;
@@ -335,10 +335,10 @@ const eliminarFuncion = (req, res) => {
     return res.status(404).json({ mensaje: "Función no encontrada" });
   }
 
-  if (boletasService.existenBoletasActivasDeFuncion(id)) {
-    return res
-      .status(409)
-      .json({ mensaje: "No se puede eliminar una función con boletas vendidas" });
+  if (boletasService.funcionTieneBoletas(id)) {
+    return res.status(409).json({
+      mensaje: "No se puede eliminar la función porque tiene boletas asociadas"
+    });
   }
 
   funcionesService.eliminarFuncion(id);

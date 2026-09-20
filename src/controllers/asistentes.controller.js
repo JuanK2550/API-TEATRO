@@ -3,6 +3,7 @@
 // ========================================
 const { matchedData } = require("express-validator");
 const asistentesService = require("../services/asistentes.service");
+const boletasService = require("../services/boletas.service");
 
 // ========================================
 // Lectura del cuerpo
@@ -109,13 +110,22 @@ const actualizarAsistenteParcial = (req, res) => {
 
 // ========================================
 // DELETE
+// Un asistente con boletas asociadas no se elimina
 // ========================================
 const eliminarAsistente = (req, res) => {
-  const asistente = asistentesService.eliminarAsistente(req.params.id);
+  const { id } = req.params;
 
-  if (!asistente) {
+  if (!asistentesService.obtenerAsistentePorId(id)) {
     return res.status(404).json({ mensaje: "Asistente no encontrado" });
   }
+
+  if (boletasService.asistenteTieneBoletas(id)) {
+    return res.status(409).json({
+      mensaje: "No se puede eliminar el asistente porque tiene boletas asociadas"
+    });
+  }
+
+  asistentesService.eliminarAsistente(id);
 
   res.status(200).json({ mensaje: "Asistente eliminado correctamente" });
 };

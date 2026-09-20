@@ -3,6 +3,7 @@
 // ========================================
 const { matchedData } = require("express-validator");
 const eventosService = require("../services/eventos.service");
+const funcionesService = require("../services/funciones.service");
 
 // ========================================
 // Lectura del cuerpo
@@ -101,13 +102,22 @@ const cambiarEstadoEvento = (req, res) => {
 
 // ========================================
 // DELETE
+// Un evento con funciones asociadas no se elimina
 // ========================================
 const eliminarEvento = (req, res) => {
-  const evento = eventosService.eliminarEvento(req.params.id);
+  const { id } = req.params;
 
-  if (!evento) {
+  if (!eventosService.obtenerEventoPorId(id)) {
     return res.status(404).json({ mensaje: "Evento no encontrado" });
   }
+
+  if (funcionesService.eventoTieneFunciones(id)) {
+    return res.status(409).json({
+      mensaje: "No se puede eliminar el evento porque tiene funciones asociadas"
+    });
+  }
+
+  eventosService.eliminarEvento(id);
 
   res.status(200).json({ mensaje: "Evento eliminado correctamente" });
 };

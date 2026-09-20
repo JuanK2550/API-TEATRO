@@ -207,6 +207,18 @@ const eliminarFuncion = (id) => {
 };
 
 // ========================================
+// Integridad referencial
+// Cuentan todas las funciones, sea cual sea su estado
+// ========================================
+const eventoTieneFunciones = (eventoId) =>
+  funciones.some((f) => f.eventoId === Number(eventoId));
+
+const localidadTieneTarifas = (localidadId) =>
+  funciones.some((f) =>
+    f.tarifas.some((t) => t.localidadId === Number(localidadId))
+  );
+
+// ========================================
 // Exportaciones
 // ========================================
 module.exports = {
@@ -220,6 +232,8 @@ module.exports = {
   obtenerFuncionesPorEvento,
   obtenerTarifasDeFuncion,
   funcionTieneConflicto,
+  eventoTieneFunciones,
+  localidadTieneTarifas,
   crearFuncion,
   actualizarFuncion,
   actualizarFuncionParcial,

@@ -3,6 +3,8 @@
 // ========================================
 const { matchedData } = require("express-validator");
 const localidadesService = require("../services/localidades.service");
+const boletasService = require("../services/boletas.service");
+const funcionesService = require("../services/funciones.service");
 
 // ========================================
 // Lectura del cuerpo
@@ -156,13 +158,29 @@ const cambiarEstadoLocalidad = (req, res) => {
 
 // ========================================
 // DELETE
+// Una localidad con boletas o con tarifas en alguna función no se elimina
 // ========================================
 const eliminarLocalidad = (req, res) => {
-  const localidad = localidadesService.eliminarLocalidad(req.params.id);
+  const { id } = req.params;
 
-  if (!localidad) {
+  if (!localidadesService.obtenerLocalidadPorId(id)) {
     return res.status(404).json({ mensaje: "Localidad no encontrada" });
   }
+
+  if (boletasService.localidadTieneBoletas(id)) {
+    return res.status(409).json({
+      mensaje: "No se puede eliminar la localidad porque tiene boletas asociadas"
+    });
+  }
+
+  if (funcionesService.localidadTieneTarifas(id)) {
+    return res.status(409).json({
+      mensaje:
+        "No se puede eliminar la localidad porque está referenciada en las tarifas de una o más funciones"
+    });
+  }
+
+  localidadesService.eliminarLocalidad(id);
 
   res.status(200).json({ mensaje: "Localidad eliminada correctamente" });
 };

@@ -301,6 +301,19 @@ const eliminarBoleta = (id) => {
 };
 
 // ========================================
+// Integridad referencial
+// Cuentan todas las boletas, incluidas las canceladas
+// ========================================
+const asistenteTieneBoletas = (asistenteId) =>
+  boletas.some((b) => b.asistenteId === Number(asistenteId));
+
+const funcionTieneBoletas = (funcionId) =>
+  boletas.some((b) => b.funcionId === Number(funcionId));
+
+const localidadTieneBoletas = (localidadId) =>
+  boletas.some((b) => b.localidadId === Number(localidadId));
+
+// ========================================
 // Exportaciones
 // ========================================
 module.exports = {
@@ -319,6 +332,9 @@ module.exports = {
   obtenerBoletasPorFuncion,
   obtenerBoletasPorAsistente,
   existenBoletasActivasDeFuncion,
+  asistenteTieneBoletas,
+  funcionTieneBoletas,
+  localidadTieneBoletas,
   butacaOcupada,
   contarBoletasPorFuncionYLocalidad,
   contarBoletasPorAsistenteYFuncion,
