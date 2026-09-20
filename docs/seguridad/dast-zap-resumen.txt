@@ -1,0 +1,40 @@
+DAST - Resumen del escaneo con OWASP ZAP
+=========================================
+
+Herramienta:   OWASP ZAP 2.17.0 (sin interfaz)
+Objetivo:      http://localhost:3000/api
+Fecha:         16/09/2026
+Tipo:          Active Scan a partir del OpenAPI (/openapi.json)
+Endpoints:     39
+
+Respuestas del servidor
+-----------------------
+2xx (correctas):          41 %
+4xx (rechazadas):         58 %
+5xx (errores servidor):    0 %
+
+Alertas
+-------
+Alto:           1
+Medio:          0
+Bajo:           0
+Informativo:    1
+
+1) Path Traversal - Riesgo alto - FALSO POSITIVO
+   Endpoint:  PUT /api/eventos/10
+   Campo:     duracionMinutos
+   Valor:     10
+   Motivo:    El valor que envió ZAP es un número normal. La API no lee
+              archivos del disco, los datos están en memoria, y
+              duracionMinutos solo acepta enteros entre 10 y 600.
+
+2) User Agent Fuzzer - Informativo - FALSO POSITIVO
+   Endpoint:  POST /api/eventos
+   Campo:     cabecera User-Agent
+   Motivo:    ZAP ve respuestas distintas al cambiar el navegador, pero
+              es porque cada POST crea un evento nuevo con otro id. La
+              API no usa el User-Agent para nada.
+
+Conclusión
+----------
+0 vulnerabilidades reales.

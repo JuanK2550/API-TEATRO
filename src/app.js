@@ -16,6 +16,8 @@ const {
   manejarError
 } = require("./middlewares/errores.middleware");
 
+const validarApiKey = require("./middlewares/apiKey.middleware");
+
 const asistentesRoutes = require("./routes/asistentes.routes");
 const eventosRoutes = require("./routes/eventos.routes");
 const localidadesRoutes = require("./routes/localidades.routes");
@@ -67,6 +69,12 @@ const limitador = rateLimit({
 });
 
 app.use("/api", limitador);
+
+// ========================================
+// Autenticación mediante API Key
+// Toda petición a /api exige la cabecera X-API-Key
+// ========================================
+app.use("/api", validarApiKey);
 
 // ========================================
 // Ruta raíz

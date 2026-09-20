@@ -63,6 +63,14 @@ const definicion = {
     }
   ],
   components: {
+    securitySchemes: {
+      ApiKeyAuth: {
+        type: "apiKey",
+        in: "header",
+        name: "X-API-Key",
+        description: "API Key requerida para consumir los endpoints protegidos."
+      }
+    },
     schemas: {
       Mensaje: {
         type: "object",
@@ -112,7 +120,8 @@ const definicion = {
         }
       }
     }
-  }
+  },
+  security: [{ ApiKeyAuth: [] }]
 };
 
 // ========================================

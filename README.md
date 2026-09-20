@@ -10,7 +10,8 @@ El teatro programa obras, conciertos, cine y actos institucionales en una sala
 única, con localidades a distintas distancias del escenario. La API gestiona el
 flujo completo, desde el catálogo de eventos hasta la validación de la boleta en
 la puerta. El precio, el código y el estado de las boletas los calcula el
-servidor. Es un trabajo académico, sin base de datos ni autenticación.
+servidor. Es un trabajo académico, sin base de datos. El acceso a `/api` exige una
+API Key.
 
 ## Recursos
 
@@ -88,13 +89,37 @@ Boletas:   reservada  → pagada, cancelada
 - Pasar una función a `en_venta` exige tarifas completas y coherentes.
 - Una boleta solo pasa a `usada` si la función está `en_curso`.
 - No se modifican funciones `en_curso`, `finalizada` ni `cancelada`.
-- No se elimina una función con boletas no canceladas.
 - Solo se modifican boletas `reservada`; solo se eliminan `reservada` o `cancelada`.
+
+## Integridad referencial
+
+Ningún `DELETE` puede dejar registros huérfanos, igual que haría una base de
+datos con `FOREIGN KEY ... ON DELETE RESTRICT`.
+
+| Recurso | No se elimina si | Respuesta |
+| ------- | ---------------- | --------- |
+| Asistente | Tiene boletas | 409 |
+| Evento | Tiene funciones | 409 |
+| Localidad | Tiene boletas, o aparece en las tarifas de alguna función | 409 |
+| Función | Tiene boletas | 409 |
+
+Cada `DELETE` comprueba primero que el recurso exista (404), después sus
+relaciones (409) y solo entonces borra (200). El id inválido lo rechaza antes
+el validador con un 400.
+
+**Una boleta cancelada sigue bloqueando el borrado.** Cancelar y eliminar no
+son lo mismo: la cancelación libera la butaca para que se pueda revender, pero
+la boleta permanece como registro histórico y sigue apuntando a su función, su
+localidad y su asistente. Si se borrara cualquiera de los tres, esa referencia
+quedaría rota. Por eso las comprobaciones de integridad cuentan **todas** las
+boletas, sin mirar su estado, mientras que la regla de reventa de butacas sí
+distingue las canceladas.
 
 ## Medidas de seguridad
 
 | Medida | Implementación |
 | ------ | -------------- |
+| API Key | Cabecera `X-API-Key` obligatoria en todo `/api` |
 | helmet | Cabeceras de seguridad en todas las respuestas |
 | `x-powered-by` | Deshabilitado con `app.disable("x-powered-by")` |
 | CORS | Origen único desde `ALLOWED_ORIGIN`; métodos GET, POST, PUT, PATCH, DELETE |
@@ -104,6 +129,21 @@ Boletas:   reservada  → pagada, cancelada
 | Mass Assignment | Los controllers leen solo `matchedData`, nunca `req.body` |
 | Campos del servidor | `precio`, `codigo` y `estado` de boletas; `estado` de funciones; `activo`, `activa` y `capacidad` |
 | Manejo de errores | Mensajes genéricos `{ mensaje }`; el detalle solo se registra en consola |
+
+**Autenticación por API Key.** Toda petición a `/api` debe llevar la cabecera
+`X-API-Key` con el valor de `API_KEY`. Sin cabecera responde 401 "API Key
+requerida"; con una clave que no coincide, 401 "API Key inválida". La clave se
+lee solo de la cabecera, nunca de la query string, porque las URLs quedan
+guardadas en historiales, registros del servidor y proxies.
+
+La comparación usa `crypto.timingSafeEqual` y no `===`. Una comparación normal
+de cadenas se detiene en el primer carácter distinto, así que tarda un poco más
+cuantos más caracteres iniciales acierte el atacante; midiendo esos tiempos se
+puede deducir la clave carácter a carácter. `timingSafeEqual` compara siempre
+todos los bytes, en tiempo constante. Antes se comprueba que ambas claves midan
+lo mismo, porque esa función exige buffers del mismo tamaño.
+
+Esto autentica al **cliente** que consume la API, no a una persona.
 
 ## Instalación y ejecución
 
@@ -124,8 +164,17 @@ Los comandos se ejecutan desde la raíz del proyecto. El servidor queda en
 | `PORT` | `3000` | Puerto |
 | `ALLOWED_ORIGIN` | `http://localhost:3000` | Origen permitido por CORS |
 | `RATE_LIMIT_MAX` | `100` | Peticiones por ventana de 15 min |
+| `API_KEY` | sin valor | Clave que exige la cabecera `X-API-Key` |
 
-`.env` está en `.gitignore`; `.env.example` es la plantilla.
+`.env` está en `.gitignore`; `.env.example` es la plantilla y nunca lleva la
+clave real. Genera una propia con:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Para probar desde Swagger UI hay que pulsar **Authorize**, arriba a la derecha,
+y pegar esa clave. Sin ese paso todos los endpoints responden 401.
 
 ## Estructura
 
@@ -152,6 +201,7 @@ API_TEATRO/
     ├── docs/
     │   └── swagger.js
     ├── middlewares/
+    │   ├── apiKey.middleware.js
     │   ├── asistentes.validator.js
     │   ├── boletas.validator.js
     │   ├── errores.middleware.js
@@ -301,7 +351,10 @@ devuelve JSON.
 ## Limitaciones conocidas
 
 - Sin persistencia: los datos se reinician con el servidor.
-- Sin autenticación ni autorización.
+- Autenticación de cliente con API Key, pero sin autenticación de usuario:
+  no hay cuentas, ni roles, ni permisos. Quien tenga la clave puede hacer todo.
+- Una sola clave para todos los clientes: no se puede revocar ni rotar por
+  cliente sin cambiarla para todos.
 - Sin HTTPS: `Strict-Transport-Security` solo tiene efecto sobre TLS.
 - Concurrencia: Node procesa las peticiones en un solo hilo y las operaciones
   sobre los arrays son síncronas. Con una base de datos haría falta una
