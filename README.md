@@ -184,6 +184,14 @@ API_TEATRO/
 ├── .gitignore
 ├── README.md
 ├── package.json
+├── pruebas/                      # scripts de prueba contra el servidor
+│   ├── pruebas.js
+│   ├── pruebas-funciones.js
+│   ├── pruebas-boletas.js
+│   ├── pruebas-limites.js
+│   ├── verificar-a.js
+│   ├── verificar-b.js
+│   └── verificar-c.js
 └── src/
     ├── app.js
     ├── controllers/
@@ -347,6 +355,49 @@ devuelve JSON.
 | Límites de venta y regresión | 22 |
 | Checklist de seguridad (35 casos) | 38 |
 | **Total** | **224, 0 fallos** |
+
+## Pruebas
+
+Los scripts de `pruebas/` lanzan peticiones reales contra el servidor y
+comparan el código de respuesta y el cuerpo con lo esperado. No usan ninguna
+librería de test: son scripts de Node con `fetch`.
+
+| Script | Qué cubre | Comprobaciones |
+| ------ | --------- | -------------- |
+| `pruebas.js` | CRUD de asistentes, eventos y localidades: validaciones, unicidad, estados y campos calculados | 57 |
+| `pruebas-funciones.js` | Funciones: las ocho reglas de negocio, el cuadro de tarifas y la máquina de estados | 52 |
+| `pruebas-boletas.js` | Boletas: precio y código calculados por el servidor, butaca única, descuentos y estados | 55 |
+| `pruebas-limites.js` | Aforo, límite de 6 boletas por asistente y borrado protegido de funciones | 22 |
+| `verificar-a.js` | Casos 1 a 16 del checklist: validación de entrada y Mass Assignment | 16 |
+| `verificar-b.js` | Casos 17 a 31: reglas de negocio e integridad | 16 |
+| `verificar-c.js` | Casos 32 a 35: cuerpo grande, límite de peticiones, cabeceras y error interno sin stack | 6 |
+
+### Cómo ejecutarlos
+
+Con el `.env` configurado y el servidor en marcha en otra terminal:
+
+```bash
+npm run dev                    # terminal 1
+node pruebas/pruebas.js        # terminal 2
+```
+
+Cada script carga el `.env` con dotenv y envía la cabecera `X-API-Key` en todas
+sus peticiones: la clave nunca está escrita en el código.
+
+Dos avisos:
+
+- Los datos están en memoria y las pruebas crean y borran registros, así que
+  **el servidor se reinicia antes de cada script** para partir de los datos
+  semilla.
+- Salvo `verificar-c.js`, los scripts superan las 100 peticiones por ventana y
+  chocan con el límite. Se lanzan con el límite subido:
+
+```bash
+RATE_LIMIT_MAX=100000 npm run dev
+```
+
+`verificar-c.js` es la excepción: comprueba precisamente que el límite salte, y
+necesita el valor normal.
 
 ## Limitaciones conocidas
 
