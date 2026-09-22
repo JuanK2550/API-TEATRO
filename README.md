@@ -119,7 +119,7 @@ distingue las canceladas.
 
 | Medida | Implementación |
 | ------ | -------------- |
-| API Key | Cabecera `X-API-Key` obligatoria en todo `/api` |
+| API Key | Cabecera `X-API-Key` obligatoria en todo `/api`; tres clientes, claves guardadas como hash SHA-256 |
 | helmet | Cabeceras de seguridad en todas las respuestas |
 | `x-powered-by` | Deshabilitado con `app.disable("x-powered-by")` |
 | CORS | Origen único desde `ALLOWED_ORIGIN`; métodos GET, POST, PUT, PATCH, DELETE |
@@ -131,12 +131,43 @@ distingue las canceladas.
 | Manejo de errores | Mensajes genéricos `{ mensaje }`; el detalle solo se registra en consola |
 
 **Autenticación por API Key.** Toda petición a `/api` debe llevar la cabecera
-`X-API-Key` con el valor de `API_KEY`. Sin cabecera responde 401 "API Key
-requerida"; con una clave que no coincide, 401 "API Key inválida". La clave se
-lee solo de la cabecera, nunca de la query string, porque las URLs quedan
-guardadas en historiales, registros del servidor y proxies.
+`X-API-Key` con la clave de un cliente registrado. La clave se lee solo de la
+cabecera, nunca de la query string, porque las URLs quedan guardadas en
+historiales, registros del servidor y proxies.
 
-La comparación usa `crypto.timingSafeEqual` y no `===`. Una comparación normal
+Hay tres clientes registrados en `src/data/apiKeys.js`:
+
+| id | Cliente | Variable | Estado |
+| -- | ------- | -------- | ------ |
+| 1 | Postman Laboratorio | `API_KEY_POSTMAN` | Activa |
+| 2 | Taquilla del Teatro | `API_KEY_TAQUILLA` | Activa |
+| 3 | Aplicación Móvil | `API_KEY_MOVIL` | Deshabilitada |
+
+Las claves **no se guardan en claro**. Al arrancar, el servidor calcula el hash
+SHA-256 de cada una y solo conserva ese hash. En cada petición calcula el hash
+de la clave recibida y lo compara con los registrados. La clave original nunca
+se recupera ni hace falta recuperarla.
+
+| Situación | Código | Mensaje |
+| --------- | ------ | ------- |
+| No envía la cabecera | 401 | API Key requerida |
+| La clave no corresponde a ningún cliente | 401 | API Key inválida |
+| La clave es de un cliente deshabilitado | 403 | API Key deshabilitada |
+| La clave es de un cliente activo | 200 | La petición sigue su curso |
+
+401 quiere decir que no se reconoce la clave. 403 quiere decir que se reconoce,
+se sabe de qué cliente es, pero ese cliente no tiene permitido pasar.
+
+Si la petición pasa, el middleware deja en `req.clienteApi` el `id` y el
+`nombre` del cliente. `GET /api/seguridad/cliente` lo devuelve: la URL es la
+misma para todos y la respuesta cambia según la clave enviada.
+
+Un fallo de configuración impide que el servidor arranque. Si falta alguna de
+las tres variables, `src/data/apiKeys.js` lanza "Faltan variables de entorno
+para las API Keys" al cargarse y el proceso termina. El error aparece al
+arrancar, no con la primera petición.
+
+La comparación de hashes usa `crypto.timingSafeEqual` y no `===`. Una comparación normal
 de cadenas se detiene en el primer carácter distinto, así que tarda un poco más
 cuantos más caracteres iniciales acierte el atacante; midiendo esos tiempos se
 puede deducir la clave carácter a carácter. `timingSafeEqual` compara siempre
@@ -164,17 +195,21 @@ Los comandos se ejecutan desde la raíz del proyecto. El servidor queda en
 | `PORT` | `3000` | Puerto |
 | `ALLOWED_ORIGIN` | `http://localhost:3000` | Origen permitido por CORS |
 | `RATE_LIMIT_MAX` | `100` | Peticiones por ventana de 15 min |
-| `API_KEY` | sin valor | Clave que exige la cabecera `X-API-Key` |
+| `API_KEY_POSTMAN` | sin valor | Clave del cliente Postman Laboratorio |
+| `API_KEY_TAQUILLA` | sin valor | Clave del cliente Taquilla del Teatro |
+| `API_KEY_MOVIL` | sin valor | Clave del cliente Aplicación Móvil (deshabilitado) |
 
-`.env` está en `.gitignore`; `.env.example` es la plantilla y nunca lleva la
-clave real. Genera una propia con:
+`.env` está en `.gitignore`; `.env.example` es la plantilla y nunca lleva las
+claves reales. Las tres son obligatorias: sin ellas el servidor no arranca.
+Genera cada una con:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 Para probar desde Swagger UI hay que pulsar **Authorize**, arriba a la derecha,
-y pegar esa clave. Sin ese paso todos los endpoints responden 401.
+y pegar una de las claves activas. Sin ese paso todos los endpoints responden
+401.
 
 ## Estructura
 
@@ -204,6 +239,7 @@ API_TEATRO/
     │   ├── asistentes.js
     │   ├── boletas.js
     │   ├── eventos.js
+    │   ├── apiKeys.js
     │   ├── funciones.js
     │   └── localidades.js
     ├── docs/
@@ -222,13 +258,17 @@ API_TEATRO/
     │   ├── boletas.routes.js
     │   ├── eventos.routes.js
     │   ├── funciones.routes.js
-    │   └── localidades.routes.js
-    └── services/
-        ├── asistentes.service.js
-        ├── boletas.service.js
-        ├── eventos.service.js
-        ├── funciones.service.js
-        └── localidades.service.js
+    │   ├── localidades.routes.js
+    │   └── seguridad.routes.js
+    ├── services/
+    │   ├── apiKeys.service.js
+    │   ├── asistentes.service.js
+    │   ├── boletas.service.js
+    │   ├── eventos.service.js
+    │   ├── funciones.service.js
+    │   └── localidades.service.js
+    └── utils/
+        └── crypto.util.js            # generarHash y compararSeguro
 ```
 
 Flujo: `routes → validadores → controllers → services → data`. Los controllers
@@ -236,7 +276,7 @@ no acceden a los datos; solo los services importan desde `src/data/`.
 
 ## Endpoints
 
-38 endpoints en 18 rutas. Swagger UI: <http://localhost:3000/api-docs> ·
+39 endpoints en 19 rutas. Swagger UI: <http://localhost:3000/api-docs> ·
 OpenAPI: <http://localhost:3000/openapi.json>
 
 **Generales**
@@ -309,6 +349,12 @@ OpenAPI: <http://localhost:3000/openapi.json>
 | PATCH | `/api/boletas/:id` | Actualiza parcialmente una boleta reservada |
 | PATCH | `/api/boletas/:id/estado` | Cambia el estado de una boleta |
 | DELETE | `/api/boletas/:id` | Elimina una boleta reservada o cancelada |
+
+**Seguridad**
+
+| Método | Ruta | Descripción |
+| ------ | ---- | ----------- |
+| GET | `/api/seguridad/cliente` | Devuelve el cliente dueño de la API Key enviada |
 
 ## Análisis de seguridad
 
@@ -403,9 +449,10 @@ necesita el valor normal.
 
 - Sin persistencia: los datos se reinician con el servidor.
 - Autenticación de cliente con API Key, pero sin autenticación de usuario:
-  no hay cuentas, ni roles, ni permisos. Quien tenga la clave puede hacer todo.
-- Una sola clave para todos los clientes: no se puede revocar ni rotar por
-  cliente sin cambiarla para todos.
+  se sabe qué aplicación hace la petición, no qué persona la usa. No hay
+  cuentas, ni roles, ni permisos: un cliente activo puede hacer todo.
+- Los clientes están en memoria. Deshabilitar o añadir uno exige editar
+  `src/data/apiKeys.js` y reiniciar; no hay endpoint para gestionarlos.
 - Sin HTTPS: `Strict-Transport-Security` solo tiene efecto sobre TLS.
 - Concurrencia: Node procesa las peticiones en un solo hilo y las operaciones
   sobre los arrays son síncronas. Con una base de datos haría falta una

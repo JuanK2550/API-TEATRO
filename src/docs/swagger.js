@@ -60,6 +60,11 @@ const definicion = {
       name: "Boletas",
       description:
         "Venta de boletería. El precio, el código y el estado los administra la API, nunca el cliente."
+    },
+    {
+      name: "Seguridad",
+      description:
+        "Endpoints relacionados con autenticación y seguridad de la API"
     }
   ],
   components: {

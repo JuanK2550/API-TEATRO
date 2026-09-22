@@ -23,6 +23,7 @@ const eventosRoutes = require("./routes/eventos.routes");
 const localidadesRoutes = require("./routes/localidades.routes");
 const funcionesRoutes = require("./routes/funciones.routes");
 const boletasRoutes = require("./routes/boletas.routes");
+const seguridadRoutes = require("./routes/seguridad.routes");
 
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./docs/swagger");
@@ -91,6 +92,7 @@ app.use("/api/eventos", eventosRoutes);
 app.use("/api/localidades", localidadesRoutes);
 app.use("/api/funciones", funcionesRoutes);
 app.use("/api/boletas", boletasRoutes);
+app.use("/api/seguridad", seguridadRoutes);
 
 // ========================================
 // Documentación
