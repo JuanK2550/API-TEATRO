@@ -219,6 +219,7 @@ API_TEATRO/
 ├── .gitignore
 ├── README.md
 ├── package.json
+├── docs/entregas/                # informes de entrega en PDF
 ├── pruebas/                      # scripts de prueba contra el servidor
 │   ├── pruebas.js
 │   ├── pruebas-funciones.js
@@ -457,6 +458,11 @@ necesita el valor normal.
 - Concurrencia: Node procesa las peticiones en un solo hilo y las operaciones
   sobre los arrays son síncronas. Con una base de datos haría falta una
   transacción o un índice único para asignar butacas.
+
+## Documentación de entregas
+
+- [Pruebas SCA + SAST + DAST y levantamiento de la API](docs/entregas/LEVANTAMIENTO%20DE%20LA%20API%20MAS%20PRUEBAS.pdf)
+- [Laboratorio 5: integridad referencial y API Keys](docs/entregas/Integridad%20referencial%20%2B%20API%20Keys.pdf)
 
 ## Integrantes
 
