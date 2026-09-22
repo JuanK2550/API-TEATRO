@@ -5,7 +5,7 @@
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
-const CLAVE_API = process.env.API_KEY;
+const CLAVE_API = process.env.API_KEY_POSTMAN;
 const fetchSinClave = globalThis.fetch;
 globalThis.fetch = (url, opciones = {}) =>
   fetchSinClave(url, {
