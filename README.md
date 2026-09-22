@@ -463,6 +463,7 @@ necesita el valor normal.
 
 - [Pruebas SCA + SAST + DAST y levantamiento de la API](docs/entregas/LEVANTAMIENTO%20DE%20LA%20API%20MAS%20PRUEBAS.pdf)
 - [Laboratorio 5: integridad referencial y API Keys](docs/entregas/Integridad%20referencial%20%2B%20API%20Keys.pdf)
+- [Laboratorio 6: múltiples clientes y API Keys como hash](docs/entregas/M%C3%BAltiples%20clientes%20%2B%20API%20Keys%20almacenadas%20como%20hash.pdf)
 
 ## Integrantes
 
