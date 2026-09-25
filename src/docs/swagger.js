@@ -65,6 +65,10 @@ const definicion = {
       name: "Seguridad",
       description:
         "Endpoints relacionados con autenticación y seguridad de la API"
+    },
+    {
+      name: "Autenticación",
+      description: "Registro e inicio de sesión de usuarios"
     }
   ],
   components: {
