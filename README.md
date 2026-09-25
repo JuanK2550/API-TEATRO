@@ -120,6 +120,7 @@ distingue las canceladas.
 | Medida | Implementación |
 | ------ | -------------- |
 | API Key | Cabecera `X-API-Key` obligatoria en todo `/api`; tres clientes, claves guardadas como hash SHA-256 |
+| Contraseñas | Usuarios con bcrypt, cost 12 y sal por contraseña; nunca se guardan ni se devuelven en claro |
 | helmet | Cabeceras de seguridad en todas las respuestas |
 | `x-powered-by` | Deshabilitado con `app.disable("x-powered-by")` |
 | CORS | Origen único desde `ALLOWED_ORIGIN`; métodos GET, POST, PUT, PATCH, DELETE |
@@ -174,7 +175,50 @@ puede deducir la clave carácter a carácter. `timingSafeEqual` compara siempre
 todos los bytes, en tiempo constante. Antes se comprueba que ambas claves midan
 lo mismo, porque esa función exige buffers del mismo tamaño.
 
-Esto autentica al **cliente** que consume la API, no a una persona.
+Esto autentica al **cliente** que consume la API, no a una persona. Quién es la
+persona lo dice el apartado siguiente.
+
+### Autenticación de usuarios
+
+`POST /api/auth/registro` crea un usuario y `POST /api/auth/login` comprueba sus
+credenciales. Las dos rutas están bajo `/api`, así que además exigen la API Key:
+la clave dice qué aplicación pide y el correo con la contraseña dicen qué
+persona.
+
+Roles: `administrador`, `taquilla` y `asistente`.
+
+**La contraseña nunca se guarda.** Se guarda su hash, calculado con bcrypt y
+cost 12. bcrypt genera una **sal distinta para cada contraseña** y la incluye
+dentro del hash, así que no hace falta guardarla aparte. Dos usuarios con la
+misma contraseña quedan con hashes distintos:
+
+```
+$2b$12$<sal A, 22 caracteres><resultado A>
+$2b$12$<sal B, 22 caracteres><resultado B>
+```
+
+`$2b$` es la variante de bcrypt, `12$` el cost y lo que sigue son la sal y el
+resultado. Un cost alto hace cada comprobación deliberadamente lenta, que es lo
+que encarece probar contraseñas en masa. Por eso se usa bcrypt y no SHA-256:
+las API Keys son aleatorias, pero una contraseña escrita por una persona se
+adivina probando.
+
+**Ni la contraseña ni su hash salen nunca en una respuesta.** Los controllers
+arman la respuesta campo por campo: `id`, `nombre`, `email`, `rol` y, en el
+registro, `activo`.
+
+| Situación | Código | Mensaje |
+| --------- | ------ | ------- |
+| Registro correcto | 201 | Usuario registrado correctamente |
+| El correo ya está registrado | 409 | Ya existe un usuario con ese correo electrónico |
+| Login correcto | 200 | Autenticación correcta |
+| Correo desconocido **o** contraseña incorrecta | 401 | Credenciales inválidas |
+| Usuario deshabilitado | 403 | Usuario deshabilitado |
+
+El 401 **no distingue** si falló el correo o la contraseña, a propósito. Con un
+mensaje del tipo "ese usuario no existe", cualquiera podría averiguar qué
+correos están registrados probándolos uno por uno, y esa lista ya es
+información útil para un atacante.
 
 ## Instalación y ejecución
 
@@ -232,6 +276,7 @@ API_TEATRO/
     ├── app.js
     ├── controllers/
     │   ├── asistentes.controller.js
+    │   ├── auth.controller.js
     │   ├── boletas.controller.js
     │   ├── eventos.controller.js
     │   ├── funciones.controller.js
@@ -242,12 +287,14 @@ API_TEATRO/
     │   ├── eventos.js
     │   ├── apiKeys.js
     │   ├── funciones.js
-    │   └── localidades.js
+    │   ├── localidades.js
+    │   └── usuarios.js
     ├── docs/
     │   └── swagger.js
     ├── middlewares/
     │   ├── apiKey.middleware.js
     │   ├── asistentes.validator.js
+    │   ├── auth.validator.js
     │   ├── boletas.validator.js
     │   ├── errores.middleware.js
     │   ├── eventos.validator.js
@@ -256,6 +303,7 @@ API_TEATRO/
     │   └── validar.middleware.js
     ├── routes/
     │   ├── asistentes.routes.js
+    │   ├── auth.routes.js
     │   ├── boletas.routes.js
     │   ├── eventos.routes.js
     │   ├── funciones.routes.js
@@ -267,9 +315,11 @@ API_TEATRO/
     │   ├── boletas.service.js
     │   ├── eventos.service.js
     │   ├── funciones.service.js
-    │   └── localidades.service.js
+    │   ├── localidades.service.js
+    │   └── usuarios.service.js
     └── utils/
-        └── crypto.util.js            # generarHash y compararSeguro
+        ├── crypto.util.js            # SHA-256 para las API Keys
+        └── password.util.js          # bcrypt para las contraseñas
 ```
 
 Flujo: `routes → validadores → controllers → services → data`. Los controllers
@@ -277,7 +327,7 @@ no acceden a los datos; solo los services importan desde `src/data/`.
 
 ## Endpoints
 
-39 endpoints en 19 rutas. Swagger UI: <http://localhost:3000/api-docs> ·
+41 endpoints en 21 rutas. Swagger UI: <http://localhost:3000/api-docs> ·
 OpenAPI: <http://localhost:3000/openapi.json>
 
 **Generales**
@@ -356,6 +406,13 @@ OpenAPI: <http://localhost:3000/openapi.json>
 | Método | Ruta | Descripción |
 | ------ | ---- | ----------- |
 | GET | `/api/seguridad/cliente` | Devuelve el cliente dueño de la API Key enviada |
+
+**Autenticación**
+
+| Método | Ruta | Descripción |
+| ------ | ---- | ----------- |
+| POST | `/api/auth/registro` | Registra un usuario; la contraseña se guarda con bcrypt |
+| POST | `/api/auth/login` | Comprueba email y contraseña |
 
 ## Análisis de seguridad
 
@@ -454,6 +511,12 @@ necesita el valor normal.
   cuentas, ni roles, ni permisos: un cliente activo puede hacer todo.
 - Los clientes están en memoria. Deshabilitar o añadir uno exige editar
   `src/data/apiKeys.js` y reiniciar; no hay endpoint para gestionarlos.
+- Los usuarios también viven en memoria: al reiniciar el servidor desaparecen y
+  hay que volver a registrarlos.
+- El login solo confirma que las credenciales son correctas. Todavía no entrega
+  ningún token, así que el resto de endpoints no sabe qué usuario los llama y
+  el rol no controla permisos: cualquier cliente con una API Key activa puede
+  usar toda la API.
 - Sin HTTPS: `Strict-Transport-Security` solo tiene efecto sobre TLS.
 - Concurrencia: Node procesa las peticiones en un solo hilo y las operaciones
   sobre los arrays son síncronas. Con una base de datos haría falta una
