@@ -1,0 +1,10 @@
+found 0 vulnerabilities
+
+Salida de: npm list bcrypt
+api_teatro@1.0.0 C:\Users\Juan Camilo\OneDrive\Documentos\API_TEATRO
+`-- bcrypt@6.0.0
+
+
+Salida de: npm audit --json (resumen)
+vulnerabilidades: {"info":0,"low":0,"moderate":0,"high":0,"critical":0,"total":0}
+dependencias: {"prod":122,"dev":24,"optional":1,"peer":1,"peerOptional":0,"total":146}
