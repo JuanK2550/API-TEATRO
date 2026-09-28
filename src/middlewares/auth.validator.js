@@ -3,12 +3,10 @@
 // ========================================
 const { body } = require("express-validator");
 
-const { ROLES } = require("../services/usuarios.service");
-
 // ========================================
 // Reglas por campo
 // ========================================
-// Los campos passwordHash y activo no aparecen en ninguna regla a propósito:
+// Los campos rol, passwordHash y activo no aparecen en ninguna regla a propósito:
 // al no estar declarados, matchedData los descarta y el cliente no puede
 // enviarlos. El service es el único que los fija.
 const reglaNombre = () =>
@@ -34,20 +32,11 @@ const reglaPassword = () =>
     .isLength({ min: 10, max: 72 })
     .withMessage("La contraseña debe tener entre 10 y 72 caracteres");
 
-const reglaRol = () =>
-  body("rol")
-    .isIn(ROLES)
-    .withMessage(`El rol debe ser ${ROLES.join(", ")}`);
-
 // ========================================
 // Registro
+// El rol no se declara: lo asigna el servidor, no el cliente
 // ========================================
-const validarRegistro = [
-  reglaNombre(),
-  reglaEmail(),
-  reglaPassword(),
-  reglaRol()
-];
+const validarRegistro = [reglaNombre(), reglaEmail(), reglaPassword()];
 
 // ========================================
 // Login

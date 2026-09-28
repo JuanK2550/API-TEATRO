@@ -128,7 +128,7 @@ distingue las canceladas.
 | Límite del cuerpo | `express.json({ limit: "10kb" })` |
 | express-validator | Tipos, rangos, formatos y listas blancas en `tipo`, `clasificacionEdad`, `tipoDescuento` y estados; textos sin `<` ni `>` |
 | Mass Assignment | Los controllers leen solo `matchedData`, nunca `req.body` |
-| Campos del servidor | `precio`, `codigo` y `estado` de boletas; `estado` de funciones; `activo`, `activa` y `capacidad` |
+| Campos del servidor | `precio`, `codigo` y `estado` de boletas; `estado` de funciones; `activo` de eventos; `activa` y `capacidad` de localidades; `rol` y `activo` de usuarios |
 | Manejo de errores | Mensajes genéricos `{ mensaje }`; el detalle solo se registra en consola |
 
 **Autenticación por API Key.** Toda petición a `/api` debe llevar la cabecera
@@ -186,6 +186,23 @@ la clave dice qué aplicación pide y el correo con la contraseña dicen qué
 persona.
 
 Roles: `administrador`, `taquilla` y `asistente`.
+
+**El rol lo asigna el servidor.** El registro solo acepta `nombre`, `email` y
+`password`, los tres obligatorios. `rol` no forma parte del contrato: todo
+usuario creado por el registro público nace como `asistente`, el rol con menos
+privilegios. Si la petición envía `"rol": "administrador"`, la respuesta sigue
+siendo 201 y el usuario queda como `asistente`.
+
+No responde 400 porque la entrada se filtra por lista blanca: `matchedData`
+conserva solo los campos declarados en el validador y descarta el resto sin
+discutir. Una lista negra tendría que ir nombrando cada campo peligroso uno por
+uno, y siempre se queda corta; la lista blanca también frena los campos que
+todavía no existen. Por eso un `"permisos": ["DELETE_ALL", "ADMIN"]` se cae solo,
+sin que nadie lo hubiera previsto. Mandar un campo no da derecho a controlarlo.
+
+Además el service no copia lo que llega: arma el usuario campo por campo y fija
+`rol` y `activo` por su cuenta. Son dos capas independientes, y cada una basta
+por sí sola.
 
 **La contraseña nunca se guarda.** Se guarda su hash, calculado con bcrypt y
 cost 12. bcrypt genera una **sal distinta para cada contraseña** y la incluye
@@ -517,12 +534,15 @@ necesita el valor normal.
   ningún token, así que el resto de endpoints no sabe qué usuario los llama y
   el rol no controla permisos: cualquier cliente con una API Key activa puede
   usar toda la API.
+- Por el registro público no se puede crear un administrador, ni siquiera a
+  propósito. El primer administrador tendrá que salir de un proceso controlado
+  de inicialización o seed cuando haya base de datos, nunca del registro.
 - Sin HTTPS: `Strict-Transport-Security` solo tiene efecto sobre TLS.
 - Concurrencia: Node procesa las peticiones en un solo hilo y las operaciones
   sobre los arrays son síncronas. Con una base de datos haría falta una
   transacción o un índice único para asignar butacas.
 
-## Documentación de entregas
+## Documentación de entregas — Lab. No.5, No.6, No.7 y No.8
 
 - [Pruebas SCA + SAST + DAST y levantamiento de la API](docs/entregas/LEVANTAMIENTO%20DE%20LA%20API%20MAS%20PRUEBAS.pdf)
 - [Laboratorio 5: integridad referencial y API Keys](docs/entregas/Integridad%20referencial%20%2B%20API%20Keys.pdf)

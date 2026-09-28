@@ -21,27 +21,26 @@ const router = express.Router();
  *   schemas:
  *     RegistroUsuario:
  *       type: object
- *       required: [nombre, email, password, rol]
+ *       description: >
+ *         Datos que acepta el registro. El rol no aparece porque lo asigna el
+ *         servidor: todo usuario nuevo nace como asistente.
+ *       required: [nombre, email, password]
  *       properties:
  *         nombre:
  *           type: string
  *           minLength: 3
  *           maxLength: 100
- *           example: Administrador Teatro
+ *           example: Asistente Teatro
  *         email:
  *           type: string
  *           format: email
- *           example: admin@teatro.com
+ *           example: asistente@teatro.com
  *         password:
  *           type: string
  *           format: password
  *           minLength: 10
  *           maxLength: 72
  *           example: ClaveSegura2026!
- *         rol:
- *           type: string
- *           enum: [administrador, taquilla, asistente]
- *           example: administrador
  *     LoginUsuario:
  *       type: object
  *       required: [email, password]
@@ -95,8 +94,10 @@ const router = express.Router();
  *     tags: [Autenticación]
  *     summary: Registra un usuario
  *     description: >
- *       Crea un usuario guardando su contraseña con bcrypt. La cuenta nace
- *       siempre activa y la respuesta nunca incluye la contraseña ni su hash.
+ *       Crea un usuario guardando su contraseña con bcrypt. **El rol lo asigna
+ *       el servidor y el cliente no puede definirlo**: todo registro nace con
+ *       el rol asistente y la cuenta activa. Si la petición envía un campo rol,
+ *       se ignora. La respuesta nunca incluye la contraseña ni su hash.
  *     requestBody:
  *       required: true
  *       content:

@@ -8,9 +8,11 @@ const {
 } = require("../utils/password.util");
 
 // ========================================
-// Roles permitidos
+// Roles del sistema
+// Todo registro nace con el rol menos privilegiado
 // ========================================
 const ROLES = ["administrador", "taquilla", "asistente"];
+const ROL_POR_DEFECTO = "asistente";
 
 // ========================================
 // Obtener usuario por email
@@ -29,8 +31,10 @@ const obtenerUsuarioPorId = (id) =>
 
 // ========================================
 // Crear usuario
-// La contraseña se guarda solo como hash; activo lo fija el servidor
+// La contraseña se guarda solo como hash
 // ========================================
+// El objeto se arma campo por campo, nunca con spread de datos: solo entra lo
+// que se nombra aquí.
 const crearUsuario = async (datos) => {
   const passwordHash = await generarPasswordHash(datos.password);
 
@@ -42,7 +46,11 @@ const crearUsuario = async (datos) => {
     nombre: datos.nombre,
     email: datos.email.toLowerCase(),
     passwordHash,
-    rol: datos.rol,
+    // ========================================
+    // Valores controlados por el servidor
+    // El cliente no puede fijar su rol ni activarse a sí mismo
+    // ========================================
+    rol: ROL_POR_DEFECTO,
     activo: true
   };
 
@@ -75,6 +83,7 @@ const verificarCredenciales = async (email, password) => {
 // ========================================
 module.exports = {
   ROLES,
+  ROL_POR_DEFECTO,
   obtenerUsuarioPorEmail,
   obtenerUsuarioPorId,
   crearUsuario,
