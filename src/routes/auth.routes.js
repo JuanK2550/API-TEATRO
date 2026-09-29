@@ -48,7 +48,7 @@ const router = express.Router();
  *         email:
  *           type: string
  *           format: email
- *           example: admin@teatro.com
+ *           example: asistente@teatro.com
  *         password:
  *           type: string
  *           format: password
@@ -62,15 +62,16 @@ const router = express.Router();
  *           example: 1
  *         nombre:
  *           type: string
- *           example: Administrador Teatro
+ *           example: Asistente Teatro
  *         email:
  *           type: string
  *           format: email
- *           example: admin@teatro.com
+ *           example: asistente@teatro.com
  *         rol:
  *           type: string
+ *           description: Lo asigna el servidor. El registro público siempre crea asistentes.
  *           enum: [administrador, taquilla, asistente]
- *           example: administrador
+ *           example: asistente
  *         activo:
  *           type: boolean
  *           example: true
