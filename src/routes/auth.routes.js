@@ -4,6 +4,7 @@
 const express = require("express");
 
 const authController = require("../controllers/auth.controller");
+const autenticarJWT = require("../middlewares/auth.middleware");
 const { validar } = require("../middlewares/validar.middleware");
 const {
   validarRegistro,
@@ -83,6 +84,22 @@ const router = express.Router();
  *           example: Usuario registrado correctamente
  *         usuario:
  *           $ref: "#/components/schemas/UsuarioPublico"
+ *     RespuestaLogin:
+ *       type: object
+ *       description: >
+ *         Respuesta del login. El token es un JWT firmado con HS256 que caduca
+ *         según JWT_EXPIRES_IN. Su contenido se puede leer: la firma impide
+ *         modificarlo, no lo oculta.
+ *       properties:
+ *         mensaje:
+ *           type: string
+ *           example: Autenticación correcta
+ *         usuario:
+ *           $ref: "#/components/schemas/UsuarioPublico"
+ *         token:
+ *           type: string
+ *           description: JWT con los claims sub, email, rol, iat y exp.
+ *           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.<payload>.<firma>
  */
 
 // ========================================
@@ -155,8 +172,9 @@ router.post("/registro", validarRegistro, validar, authController.registrar);
  *     tags: [Autenticación]
  *     summary: Inicia sesión
  *     description: >
- *       Comprueba el correo y la contraseña contra el hash guardado. En este
- *       bloque todavía no entrega ningún token.
+ *       Comprueba el correo y la contraseña contra el hash guardado. Si son
+ *       correctas devuelve un JWT en el campo token, que identifica a la
+ *       persona en las siguientes peticiones.
  *     requestBody:
  *       required: true
  *       content:
@@ -169,7 +187,7 @@ router.post("/registro", validarRegistro, validar, authController.registrar);
  *         content:
  *           application/json:
  *             schema:
- *               $ref: "#/components/schemas/RespuestaUsuario"
+ *               $ref: "#/components/schemas/RespuestaLogin"
  *       400:
  *         description: Datos de entrada inválidos
  *         content:
@@ -196,6 +214,84 @@ router.post("/registro", validarRegistro, validar, authController.registrar);
  *               $ref: "#/components/schemas/Error"
  */
 router.post("/login", validarLogin, validar, authController.login);
+
+// ========================================
+// GET /api/auth/perfil
+// Exige las dos credenciales: API Key del cliente y JWT del usuario
+// ========================================
+/**
+ * @openapi
+ * /api/auth/perfil:
+ *   get:
+ *     tags: [Autenticación]
+ *     summary: Devuelve quién está autenticado
+ *     description: >
+ *       Lee el JWT de la cabecera Authorization y devuelve la persona que lo
+ *       presentó, junto al cliente dueño de la API Key. Hacen falta las dos
+ *       credenciales a la vez.
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Usuario autenticado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 mensaje:
+ *                   type: string
+ *                   example: Usuario autenticado mediante JWT
+ *                 usuario:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                       example: asistente@teatro.com
+ *                     rol:
+ *                       type: string
+ *                       enum: [administrador, taquilla, asistente]
+ *                       example: asistente
+ *                 clienteApi:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     nombre:
+ *                       type: string
+ *                       example: Postman Laboratorio
+ *       401:
+ *         description: Falta el token, tiene mal formato, está expirado o es inválido; o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: API Key deshabilitada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       429:
+ *         description: Demasiadas peticiones
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ */
+router.get("/perfil", autenticarJWT, (req, res) => {
+  res.status(200).json({
+    mensaje: "Usuario autenticado mediante JWT",
+    usuario: req.usuario,
+    clienteApi: req.clienteApi
+  });
+});
 
 // ========================================
 // Exportaciones
