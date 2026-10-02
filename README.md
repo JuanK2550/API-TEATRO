@@ -336,6 +336,7 @@ API_TEATRO/
 ├── README.md
 ├── package.json
 ├── docs/entregas/                # informes de entrega en PDF
+├── docs/seguridad/               # salidas de las herramientas e informes por laboratorio
 ├── pruebas/                      # scripts de prueba contra el servidor
 │   ├── pruebas.js
 │   ├── pruebas-funciones.js
@@ -491,7 +492,18 @@ OpenAPI: <http://localhost:3000/openapi.json>
 
 ## Análisis de seguridad
 
-Las evidencias y capturas de cada prueba están en el informe PDF entregado.
+Las capturas de cada prueba están en los informes PDF de
+[`docs/entregas/`](docs/entregas/). En [`docs/seguridad/`](docs/seguridad/) están
+las salidas de las herramientas, una por laboratorio, y el informe escrito de
+cada bloque:
+
+| Informe | Tema |
+| ------- | ---- |
+| [`informe-lab5.md`](docs/seguridad/informe-lab5.md) | Integridad referencial y API Key |
+| [`informe-lab6.md`](docs/seguridad/informe-lab6.md) | Múltiples clientes con API Keys como hash |
+| [`informe-lab7.md`](docs/seguridad/informe-lab7.md) | Usuarios, hashing y salting con bcrypt |
+| [`informe-lab8.md`](docs/seguridad/informe-lab8.md) | Control del rol y escalada de privilegios |
+| [`informe-lab9.md`](docs/seguridad/informe-lab9.md) | Autenticación con JWT |
 
 | Técnica | Herramienta | Alcance | Resultado |
 | ------- | ----------- | ------- | --------- |
