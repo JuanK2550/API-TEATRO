@@ -1,0 +1,35 @@
+Comando equivalente: semgrep --config p/javascript --config p/nodejs --config p/owasp-top-ten src/
+Ejecutado como: python -c "from semgrep.console_scripts.pysemgrep import main; main()" con esos mismos argumentos,
+porque el Control de aplicaciones de Windows bloquea semgrep.exe.
+
+               
+               
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 43 files tracked by git with 563 Code rules:
+                                                                                                                        
+  Language      Rules   Files          Origin      Rules                                                                
+ ─────────────────────────────        ───────────────────                                                               
+  <multilang>       5      43          Community     563                                                                
+  js               68      42                                                                                           
+                                                                                                                        
+                
+                
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ Scan completed successfully.
+ • Findings: 0 (0 blocking)
+ • Rules run: 73
+ • Targets scanned: 43
+ • Parsed lines: ~100.0%
+ • Scan was limited to files tracked by git
+ • For a detailed list of skipped files and lines, run semgrep with the --verbose flag
+Ran 73 rules on 43 files: 0 findings.
+(need more rules? `semgrep login` for additional free Semgrep Registry rules)
+
+
+A new version of Semgrep is available. See https://semgrep.dev/docs/upgrading
+If Semgrep missed a finding, please send us feedback to let us know!
+See https://semgrep.dev/docs/reporting-false-negatives/
