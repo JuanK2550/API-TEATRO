@@ -507,8 +507,8 @@ cada bloque:
 
 | Técnica | Herramienta | Alcance | Resultado |
 | ------- | ----------- | ------- | --------- |
-| SCA | `npm audit` | 143 paquetes | 0 vulnerabilidades |
-| SAST | Semgrep 1.172.0 | 73 reglas, 30 archivos | 0 hallazgos |
+| SCA | `npm audit` | 159 paquetes | 0 vulnerabilidades |
+| SAST | Semgrep 1.172.0 | 73 reglas, 43 archivos | 0 hallazgos |
 | SAST manual | Revisión de código | `src/` completo | 2 hallazgos, corregidos |
 | DAST | OWASP ZAP 2.17.0 | 39 URLs, Active Scan sobre `/api` | 2 alertas, ambas falsos positivos |
 
@@ -593,17 +593,10 @@ necesita el valor normal.
 ## Limitaciones conocidas
 
 - Sin persistencia: los datos se reinician con el servidor.
-- Autenticación de cliente con API Key, pero sin autenticación de usuario:
-  se sabe qué aplicación hace la petición, no qué persona la usa. No hay
-  cuentas, ni roles, ni permisos: un cliente activo puede hacer todo.
 - Los clientes están en memoria. Deshabilitar o añadir uno exige editar
   `src/data/apiKeys.js` y reiniciar; no hay endpoint para gestionarlos.
 - Los usuarios también viven en memoria: al reiniciar el servidor desaparecen y
   hay que volver a registrarlos.
-- El login solo confirma que las credenciales son correctas. Todavía no entrega
-  ningún token, así que el resto de endpoints no sabe qué usuario los llama y
-  el rol no controla permisos: cualquier cliente con una API Key activa puede
-  usar toda la API.
 - Por el registro público no se puede crear un administrador, ni siquiera a
   propósito. El primer administrador tendrá que salir de un proceso controlado
   de inicialización o seed cuando haya base de datos, nunca del registro.
