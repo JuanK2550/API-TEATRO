@@ -4,6 +4,7 @@
 const { matchedData } = require("express-validator");
 
 const usuariosService = require("../services/usuarios.service");
+const { generarToken } = require("../utils/jwt.util");
 
 // ========================================
 // Lectura del cuerpo
@@ -78,7 +79,8 @@ const login = async (req, res, next) => {
 
     res.status(200).json({
       mensaje: "Autenticación correcta",
-      usuario: usuarioPublico(usuario)
+      usuario: usuarioPublico(usuario),
+      token: generarToken(usuario)
     });
   } catch (error) {
     next(error);

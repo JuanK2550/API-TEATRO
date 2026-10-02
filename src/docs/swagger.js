@@ -78,6 +78,13 @@ const definicion = {
         in: "header",
         name: "X-API-Key",
         description: "API Key requerida para consumir los endpoints protegidos."
+      },
+      BearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description:
+          "Token JWT que entrega el login. Identifica a la persona, no a la aplicación."
       }
     },
     schemas: {

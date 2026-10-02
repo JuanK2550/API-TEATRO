@@ -121,6 +121,7 @@ distingue las canceladas.
 | ------ | -------------- |
 | API Key | Cabecera `X-API-Key` obligatoria en todo `/api`; tres clientes, claves guardadas como hash SHA-256 |
 | Contraseñas | Usuarios con bcrypt, cost 12 y sal por contraseña; nunca se guardan ni se devuelven en claro |
+| JWT | Token firmado con HS256 y caducidad; algoritmo fijo al firmar y al verificar |
 | helmet | Cabeceras de seguridad en todas las respuestas |
 | `x-powered-by` | Deshabilitado con `app.disable("x-powered-by")` |
 | CORS | Origen único desde `ALLOWED_ORIGIN`; métodos GET, POST, PUT, PATCH, DELETE |
@@ -237,6 +238,48 @@ mensaje del tipo "ese usuario no existe", cualquiera podría averiguar qué
 correos están registrados probándolos uno por uno, y esa lista ya es
 información útil para un atacante.
 
+### Sesión con JWT
+
+El login, además del usuario, devuelve un **token JWT** en el campo `token`.
+Ese token se manda en las siguientes peticiones en la cabecera
+`Authorization: Bearer <token>`, y es lo que identifica a la persona.
+
+**Qué lleva el token**: `sub` con el id del usuario, `email`, `rol`, `iat`
+(cuándo se emitió) y `exp` (cuándo caduca). **Qué no lleva**: la contraseña ni
+su hash, ni ningún otro dato del usuario.
+
+Se firma con **HS256**, fijado en el código al firmar y al verificar. Al
+verificar solo se acepta ese algoritmo, en lugar de fiarse del que anuncia el
+propio token: un token que llegue diciendo `"alg": "none"` se rechaza.
+
+**Firmar no es cifrar.** El contenido del token va en base64, así que cualquiera
+que lo tenga puede leerlo; de hecho `jwt.decode` lo lee sin la clave. Lo que
+impide la firma es **modificarlo**: si alguien cambia el rol dentro del payload,
+la firma deja de cuadrar y la API responde 401. Por eso en el token no va nada
+que deba permanecer secreto, y por eso nunca se decide nada con `decode`, solo
+con `verify`.
+
+Las credenciales del proyecto, cada una en su sitio:
+
+| Credencial | Qué responde | Dónde viaja |
+| ---------- | ------------ | ----------- |
+| `X-API-Key` | Qué aplicación consume la API | Cabecera, en todo `/api` |
+| email + contraseña | Quién dice ser la persona | Cuerpo de `POST /api/auth/login` |
+| JWT | Sesión temporal de esa persona | Cabecera `Authorization: Bearer` |
+| `rol` dentro del token | Base de la autorización que vendrá | Dentro del JWT |
+
+`GET /api/auth/perfil` exige **las dos credenciales a la vez** y devuelve quién
+es el usuario y qué cliente hizo la petición. Son independientes: el mismo token
+usado desde dos aplicaciones distintas devuelve el mismo `usuario` y distinto
+`clienteApi`.
+
+| Situación | Código | Mensaje |
+| --------- | ------ | ------- |
+| Sin cabecera `Authorization` | 401 | Token de autenticación requerido |
+| Sin `Bearer` delante, u otro esquema | 401 | Formato de token inválido |
+| Token caducado | 401 | Token expirado |
+| Firma incorrecta, payload alterado o `alg: none` | 401 | Token inválido |
+
 ## Instalación y ejecución
 
 Requisitos: Node.js 18 o superior (probado en 24.15.0) y npm.
@@ -259,18 +302,30 @@ Los comandos se ejecutan desde la raíz del proyecto. El servidor queda en
 | `API_KEY_POSTMAN` | sin valor | Clave del cliente Postman Laboratorio |
 | `API_KEY_TAQUILLA` | sin valor | Clave del cliente Taquilla del Teatro |
 | `API_KEY_MOVIL` | sin valor | Clave del cliente Aplicación Móvil (deshabilitado) |
+| `JWT_SECRET` | sin valor | Clave con la que se firman y verifican los JWT |
+| `JWT_EXPIRES_IN` | `1h` | Cuánto dura un token |
 
 `.env` está en `.gitignore`; `.env.example` es la plantilla y nunca lleva las
-claves reales. Las tres son obligatorias: sin ellas el servidor no arranca.
-Genera cada una con:
+claves reales: solo trae marcadores. **Cada integrante genera su propio
+`JWT_SECRET` en su `.env`**, igual que sus API Keys. Las tres API Keys son
+obligatorias: sin ellas el servidor no arranca.
+
+Genera cada API Key con:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
+Y el `JWT_SECRET`, más largo, con:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
 Para probar desde Swagger UI hay que pulsar **Authorize**, arriba a la derecha,
 y pegar una de las claves activas. Sin ese paso todos los endpoints responden
-401.
+401. En ese mismo diálogo se pega el token del login para las rutas que además
+piden `BearerAuth`.
 
 ## Estructura
 
@@ -311,6 +366,7 @@ API_TEATRO/
     ├── middlewares/
     │   ├── apiKey.middleware.js
     │   ├── asistentes.validator.js
+    │   ├── auth.middleware.js
     │   ├── auth.validator.js
     │   ├── boletas.validator.js
     │   ├── errores.middleware.js
@@ -336,6 +392,7 @@ API_TEATRO/
     │   └── usuarios.service.js
     └── utils/
         ├── crypto.util.js            # SHA-256 para las API Keys
+        ├── jwt.util.js               # firma y verificación de los JWT
         └── password.util.js          # bcrypt para las contraseñas
 ```
 
@@ -344,7 +401,7 @@ no acceden a los datos; solo los services importan desde `src/data/`.
 
 ## Endpoints
 
-41 endpoints en 21 rutas. Swagger UI: <http://localhost:3000/api-docs> ·
+42 endpoints en 22 rutas. Swagger UI: <http://localhost:3000/api-docs> ·
 OpenAPI: <http://localhost:3000/openapi.json>
 
 **Generales**
@@ -429,7 +486,8 @@ OpenAPI: <http://localhost:3000/openapi.json>
 | Método | Ruta | Descripción |
 | ------ | ---- | ----------- |
 | POST | `/api/auth/registro` | Registra un usuario; la contraseña se guarda con bcrypt |
-| POST | `/api/auth/login` | Comprueba email y contraseña |
+| POST | `/api/auth/login` | Comprueba email y contraseña y devuelve un JWT |
+| GET | `/api/auth/perfil` | Devuelve el usuario del JWT y el cliente de la API Key |
 
 ## Análisis de seguridad
 
@@ -537,12 +595,21 @@ necesita el valor normal.
 - Por el registro público no se puede crear un administrador, ni siquiera a
   propósito. El primer administrador tendrá que salir de un proceso controlado
   de inicialización o seed cuando haya base de datos, nunca del registro.
+- El rol viaja dentro del token, pero todavía no restringe nada: solo
+  `GET /api/auth/perfil` pide JWT, y ningún endpoint mira el rol para decidir.
+- `JWT_SECRET` se comprueba cuando se usa, no al arrancar. Si falta, el servidor
+  arranca igual y falla al primer login, con un 500.
+- No hay forma de revocar un token antes de que caduque. Mientras no expire
+  sigue sirviendo, aunque el usuario se deshabilite.
+- Si a un usuario le cambian el rol, su token viejo sigue diciendo el rol
+  anterior hasta que expire, porque el rol se copió dentro del token al
+  emitirlo.
 - Sin HTTPS: `Strict-Transport-Security` solo tiene efecto sobre TLS.
 - Concurrencia: Node procesa las peticiones en un solo hilo y las operaciones
   sobre los arrays son síncronas. Con una base de datos haría falta una
   transacción o un índice único para asignar butacas.
 
-## Documentación de entregas — Lab. No.5, No.6, No.7 y No.8
+## Documentación de entregas — Lab. No.5, No.6, No.7, No.8 y No.9
 
 - [Pruebas SCA + SAST + DAST y levantamiento de la API](docs/entregas/LEVANTAMIENTO%20DE%20LA%20API%20MAS%20PRUEBAS.pdf)
 - [Laboratorio 5: integridad referencial y API Keys](docs/entregas/Integridad%20referencial%20%2B%20API%20Keys.pdf)
