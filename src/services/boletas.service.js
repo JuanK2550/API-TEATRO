@@ -101,6 +101,22 @@ const existenBoletasActivasDeFuncion = (funcionId) =>
   boletas.some((b) => b.funcionId === Number(funcionId) && estaActiva(b));
 
 // ========================================
+// Ocupación de una función
+// Solo la butaca: ni el código, ni el precio, ni quién la compró
+// ========================================
+// Minimización de datos: el plano de sala solo necesita saber qué butacas están
+// tomadas. Devolver la boleta entera expondría el documento del comprador y el
+// código de su boleta a cualquiera que abriera el navegador.
+const obtenerOcupacionDeFuncion = (funcionId) =>
+  boletas
+    .filter((b) => b.funcionId === Number(funcionId) && estaActiva(b))
+    .map((b) => ({
+      localidadId: b.localidadId,
+      fila: b.fila,
+      numero: b.numero
+    }));
+
+// ========================================
 // Butaca ocupada
 // boletaIdExcluir evita que una boleta choque consigo misma al actualizarse
 // ========================================
@@ -332,6 +348,7 @@ module.exports = {
   obtenerBoletasPorFuncion,
   obtenerBoletasPorAsistente,
   existenBoletasActivasDeFuncion,
+  obtenerOcupacionDeFuncion,
   asistenteTieneBoletas,
   funcionTieneBoletas,
   localidadTieneBoletas,

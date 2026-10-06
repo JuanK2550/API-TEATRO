@@ -192,6 +192,20 @@ const obtenerTarifasDeFuncion = (req, res) => {
 };
 
 // ========================================
+// GET /:id/ocupacion
+// Qué butacas están tomadas, sin decir de quién son
+// ========================================
+const obtenerOcupacionDeFuncion = (req, res) => {
+  const { id } = req.params;
+
+  if (!funcionesService.obtenerFuncionPorId(id)) {
+    return res.status(404).json({ mensaje: "Función no encontrada" });
+  }
+
+  res.status(200).json(boletasService.obtenerOcupacionDeFuncion(id));
+};
+
+// ========================================
 // POST
 // La función siempre nace programada
 // ========================================
@@ -354,6 +368,7 @@ module.exports = {
   obtenerFuncionesPorEvento,
   obtenerFuncionPorId,
   obtenerTarifasDeFuncion,
+  obtenerOcupacionDeFuncion,
   crearFuncion,
   actualizarFuncion,
   actualizarFuncionParcial,

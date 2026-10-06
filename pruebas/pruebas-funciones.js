@@ -132,6 +132,83 @@ const principal = async () => {
   );
 
   // ========================================
+  // Ocupación
+  // Minimización de datos: solo la butaca, nunca de quién es
+  // ========================================
+  grupo("Ocupación");
+
+  const CAMPOS_OCUPACION = ["localidadId", "fila", "numero"];
+
+  await comprobar(
+    "Ocupación de la función 1",
+    "GET",
+    "/api/funciones/1/ocupacion",
+    undefined,
+    200,
+    (d) => {
+      if (!Array.isArray(d) || d.length !== 3) {
+        return "no devolvió las 3 butacas tomadas de la función 1";
+      }
+      const tomada = d.find(
+        (b) => b.localidadId === 1 && b.fila === 2 && b.numero === 7
+      );
+      return tomada ? null : "falta la butaca de la fila 2, número 7";
+    }
+  );
+  await comprobar(
+    "No devuelve codigo, asistenteId ni precio",
+    "GET",
+    "/api/funciones/1/ocupacion",
+    undefined,
+    200,
+    (d) => {
+      const sobrantes = new Set();
+      d.forEach((butaca) =>
+        Object.keys(butaca)
+          .filter((campo) => !CAMPOS_OCUPACION.includes(campo))
+          .forEach((campo) => sobrantes.add(campo))
+      );
+      return sobrantes.size === 0
+        ? null
+        : `devuelve campos de más: ${[...sobrantes].join(", ")}`;
+    }
+  );
+  await comprobar(
+    "Una boleta cancelada libera su butaca",
+    "GET",
+    "/api/funciones/7/ocupacion",
+    undefined,
+    200,
+    (d) =>
+      Array.isArray(d) && d.length === 0
+        ? null
+        : "la boleta cancelada de la función 7 sigue ocupando butaca"
+  );
+  await comprobar(
+    "Función sin boletas devuelve un array vacío",
+    "GET",
+    "/api/funciones/2/ocupacion",
+    undefined,
+    200,
+    (d) => (Array.isArray(d) && d.length === 0 ? null : "no devolvió un array vacío")
+  );
+  await comprobar(
+    "Id no numérico",
+    "GET",
+    "/api/funciones/abc/ocupacion",
+    undefined,
+    400
+  );
+  await comprobar(
+    "Ocupación de función inexistente",
+    "GET",
+    "/api/funciones/999/ocupacion",
+    undefined,
+    404,
+    (d) => (d.mensaje === "Función no encontrada" ? null : "mensaje inesperado")
+  );
+
+  // ========================================
   // Creación
   // ========================================
   grupo("Creación");
