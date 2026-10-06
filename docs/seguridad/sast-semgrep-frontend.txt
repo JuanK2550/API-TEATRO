@@ -1,0 +1,145 @@
+Análisis estático (SAST) de la Sala y de la API
+Fecha: 2026-10-06
+
+Alcance: todo el código propio del proyecto, src/ y frontend/. El objetivo de
+esta pasada era el frontend, que es código nuevo que corre en el navegador, así
+que a los conjuntos de siempre se les añadió p/xss.
+
+==============================================================
+Cómo se ejecutó
+==============================================================
+El ejecutable semgrep.exe lo bloquea el Control de aplicaciones de Windows
+("Una directiva de Control de aplicaciones bloqueó este archivo"), y
+'python -m semgrep' solo imprime un aviso de obsolescencia y termina con
+código 2. La forma que sí funciona es llamar al punto de entrada desde Python:
+
+  python -c "from semgrep.console_scripts.pysemgrep import main; main()"
+    --config=p/javascript
+    --config=p/nodejs
+    --config=p/owasp-top-ten
+    --config=p/xss
+    --metrics=off
+    --no-git-ignore
+    src frontend
+
+  (todo en una sola orden; aquí va partido para que se lea)
+
+--no-git-ignore hace que también se revisen los archivos que .gitignore excluye.
+Sin esa opción Semgrep los salta, que es justo lo contrario de lo que interesa
+en una revisión de seguridad.
+
+==============================================================
+Salida
+==============================================================
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 61 files with 563 Code rules:
+
+  Language      Rules   Files          Origin      Rules
+ ─────────────────────────────        ───────────────────
+  <multilang>       5      61          Community     563
+  js               68      52
+  html              1       1
+
+
+
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ Scan completed successfully.
+ • Findings: 0 (0 blocking)
+ • Rules run: 74
+ • Targets scanned: 61
+ • Parsed lines: ~100.0%
+ • No ignore information available
+Ran 74 rules on 61 files: 0 findings.
+(need more rules? `semgrep login` for additional free Semgrep Registry rules)
+
+
+A new version of Semgrep is available. See https://semgrep.dev/docs/upgrading
+If Semgrep missed a finding, please send us feedback to let us know!
+See https://semgrep.dev/docs/reporting-false-negatives/
+
+==============================================================
+Lectura del resultado
+==============================================================
+Cero hallazgos sobre 61 archivos. No es una sorpresa y conviene decir por qué:
+
+1. La Sala no escribe HTML en ningún momento. Una búsqueda de innerHTML,
+   outerHTML, insertAdjacentHTML, document.write, srcdoc, eval y new Function
+   sobre frontend/ no devuelve ni una coincidencia. Todo el texto entra con
+   textContent o createTextNode, que no interpretan marcado.
+
+2. Los únicos atributos que se fijan desde el guion son de accesibilidad
+   (role, aria-*), más class y el trazo de los iconos. Ningún href ni ningún
+   src se construye con datos de la API: las direcciones son rutas internas con
+   un id numérico, y las fotografías salen de una lista fija por tipo de evento.
+
+3. Los dos estilos que toca el guion son retrasos de animación calculados con
+   Math.min sobre un índice. La única propiedad CSS que recibía un dato de la
+   API (--butacas-por-fila) había quedado sin usar al cambiar las filas a flex
+   y se eliminó en esta revisión.
+
+==============================================================
+Prueba manual de XSS
+==============================================================
+Semgrep busca patrones; la prueba de verdad es meter una carga y mirar la
+pantalla. Se guardó en el evento 1, con PUT /api/eventos/1, lo siguiente:
+
+  titulo:      Bernarda " onmouseover="alert(1)
+  descripcion: &lt;img src=x onerror=alert(1)&gt; javascript:alert(2)
+               ${alert(3)} `alert(4)` &#60;script&#62;alert(5)&#60;/script&#62;
+               data:text/html;base64,PHNjcmlwdD5hbGVydCg2KTwvc2NyaXB0Pg==
+
+Ninguna lleva < ni >, porque el validador los rechaza; son precisamente las
+cargas que sí pasan el filtro de entrada. La API las guardó tal cual (200).
+
+Resultado en la Sala, en la cartelera y en la ficha del evento:
+
+  nodos inyectados (img[onerror], [onmouseover], iframe, object...)   0
+  enlaces con href javascript:                                        0
+  scripts cargados                      config.js y sala.js, los de siempre
+  diálogos abiertos                                                   0
+  errores de consola                                                  0
+
+El título se lee en pantalla como Bernarda " onmouseover="alert(1) y la
+descripción como &lt;img src=x onerror=alert(1)&gt;: texto, no marcado. La
+captura está en .impeccable/review/xss-como-texto-escritorio.png.
+
+El evento se devolvió a su contenido original al terminar.
+
+==============================================================
+Cabecera Content-Security-Policy que sirve /sala/
+==============================================================
+  default-src 'self'
+  base-uri 'self'
+  font-src 'self' https: data:
+  form-action 'self'
+  frame-ancestors 'self'
+  img-src 'self' data:
+  object-src 'none'
+  script-src 'self'
+  script-src-attr 'none'
+  style-src 'self' https: 'unsafe-inline'
+  upgrade-insecure-requests
+
+script-src es 'self' a secas: ni 'unsafe-inline' ni 'unsafe-eval'. Y
+script-src-attr 'none' bloquea los manejadores escritos en el atributo
+(onclick="..."), que es la vía que usaría la carga del título si alguna vez
+llegara a interpretarse como marcado. El HTML servido no tiene ni un script ni
+un estilo en línea: solo dos etiquetas script con src.
+
+style-src sí lleva 'unsafe-inline', pero no porque lo necesite la Sala: es el
+valor que trae helmet por defecto y que no se ha tocado. La Sala no usa
+atributos style en el marcado ni bloques <style>, así que podría quitarse. No se
+hizo en esta fase porque cambiar las cabeceras invalidaría las evidencias de
+cabeceras ya entregadas en los laboratorios anteriores, incluido el escaneo DAST
+con OWASP ZAP. Queda anotado como mejora.
+
+==============================================================
+Conclusión
+==============================================================
+Sin hallazgos de SAST y sin XSS reproducible. La defensa real no es el filtro de
+entrada que quita < y >, sino que la salida nunca se trata como HTML: aunque un
+día entrara una carga completa por otra vía, se vería como texto.

@@ -1,0 +1,88 @@
+Auditoría SCA durante la construcción del frontend (Sala)
+Fecha: 2026-10-05
+
+No se instaló ninguna dependencia nueva: el frontend es HTML, CSS y JavaScript
+sin framework ni build. El hallazgo que aparece aquí es un aviso publicado
+después del Laboratorio 9, no una consecuencia de este trabajo.
+
+==============================================================
+Salida de: npm audit
+==============================================================
+# npm audit report
+
+braces  *
+Severity: high
+braces vulnerable to stack-exhaustion denial of service through deeply nested patterns - https://github.com/advisories/GHSA-vfj7-8cjw-p6xm
+fix available via `npm audit fix --force`
+Will install nodemon@1.14.10, which is a breaking change
+node_modules/braces
+  chokidar  2.0.0 - 3.6.0
+  Depends on vulnerable versions of braces
+  node_modules/chokidar
+    nodemon  0.0.0-development || >=1.14.11
+    Depends on vulnerable versions of chokidar
+    node_modules/nodemon
+
+3 high severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+==============================================================
+Salida de: npm audit --omit=dev   (solo lo que corre en producción)
+==============================================================
+found 0 vulnerabilities
+
+==============================================================
+Por qué no se corrige
+==============================================================
+El aviso GHSA-vfj7-8cjw-p6xm afecta a braces en el rango *, es decir a todas
+sus versiones publicadas: no hay versión corregida a la que actualizar. Ya
+está instalada la última, braces 3.0.3.
+
+La cadena es nodemon -> chokidar -> braces, y nodemon es devDependency: solo
+se usa con 'npm run dev'. Por eso 'npm audit --omit=dev' da 0.
+
+Intentos, en orden:
+  a) npm audit fix          -> no cambia nada, no hay versión a la que subir
+  b) overrides en package.json -> descartado: no existe braces corregido
+  c) documentarlo           -> esta es la opción aplicada
+
+npm audit fix --force bajaría nodemon a 1.14.10, nueve versiones mayores
+atrás, y se descartó.
+
+
+==============================================================
+Repetición tras la fase 3 de la Sala (plano de butacas y compra)
+==============================================================
+La fase 3 añadió vistas, hojas de estilo y un endpoint nuevo
+(GET /api/funciones/:id/ocupacion), pero ninguna dependencia:
+package.json sigue con las mismas ocho de producción y nodemon
+como única devDependency.
+
+  npm audit --omit=dev  -> found 0 vulnerabilities
+  npm audit             -> 3 high severity vulnerabilities
+                           (la misma cadena nodemon -> chokidar -> braces)
+
+El resultado es idéntico al de arriba, por la misma razón y con la
+misma decisión: documentarlo.
+
+
+==============================================================
+Cierre del frontend (fase 5) - 6 de octubre de 2026
+==============================================================
+Tercera repetición, ya con la Sala terminada. El proyecto sigue sin
+dependencias nuevas: las ocho de produccion de siempre y nodemon como unica
+devDependency. La Sala no añadió ninguna porque no usa framework ni paso de
+compilación.
+
+  npm audit --omit=dev  -> found 0 vulnerabilities
+  npm audit             -> 3 high severity vulnerabilities
+
+Las tres siguen siendo la misma cadena nodemon -> chokidar -> braces descrita
+arriba, y la decisión sigue siendo la misma: no se baja nodemon nueve versiones
+mayores con 'npm audit fix --force' por un aviso que solo afecta a la
+herramienta de desarrollo.
+
+Lo que importa para la entrega: lo que se despliega, que es lo que mide
+'npm audit --omit=dev', no tiene ninguna vulnerabilidad conocida.
