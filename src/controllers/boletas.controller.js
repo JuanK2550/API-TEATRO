@@ -171,6 +171,21 @@ const obtenerBoletasPorAsistente = (req, res) => {
 };
 
 // ========================================
+// GET /mias
+// Las boletas de la cuenta autenticada
+// ========================================
+// El asistente sale del token, no de la dirección: por aquí nadie puede leer
+// las boletas de otra persona cambiando un número. Si la cuenta todavía no
+// tiene datos de asistente, no tiene boletas y devuelve un array vacío.
+const obtenerMisBoletas = (req, res) => {
+  const asistente = asistentesService.buscarAsistentePorUsuario(req.usuario.id);
+
+  if (!asistente) return res.status(200).json([]);
+
+  res.status(200).json(boletasService.obtenerBoletasPorAsistente(asistente.id));
+};
+
+// ========================================
 // GET por función
 // ========================================
 const obtenerBoletasPorFuncion = (req, res) => {
@@ -386,6 +401,7 @@ const eliminarBoleta = (req, res) => {
 module.exports = {
   obtenerBoletas,
   obtenerBoletasPorAsistente,
+  obtenerMisBoletas,
   obtenerBoletasPorFuncion,
   obtenerBoletaPorId,
   crearBoleta,

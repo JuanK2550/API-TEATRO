@@ -4,6 +4,7 @@
 const express = require("express");
 
 const asistentesController = require("../controllers/asistentes.controller");
+const autenticarJWT = require("../middlewares/auth.middleware");
 const { validar } = require("../middlewares/validar.middleware");
 const {
   validarIdAsistente,
@@ -44,6 +45,13 @@ const router = express.Router();
  *           type: string
  *           format: date
  *           example: "1995-03-14"
+ *         usuarioId:
+ *           type: integer
+ *           nullable: true
+ *           description: >
+ *             Cuenta a la que pertenecen estos datos. Lo pone el servidor desde
+ *             el token; es null cuando los registró la taquilla.
+ *           example: 1
  *     AsistenteEntrada:
  *       type: object
  *       required: [nombre, documento, email, telefono, fechaNacimiento]
@@ -131,6 +139,136 @@ const router = express.Router();
  *               $ref: "#/components/schemas/Error"
  */
 router.get("/", asistentesController.obtenerAsistentes);
+
+// ========================================
+// GET /api/asistentes/mio
+// Va antes que /:id: si no, "mio" entraría como un id
+// ========================================
+/**
+ * @openapi
+ * /api/asistentes/mio:
+ *   get:
+ *     tags: [Asistentes]
+ *     summary: Devuelve los datos de asistente de la cuenta autenticada
+ *     description: >
+ *       Resuelve el asistente a partir del token, no de un id en la dirección.
+ *       Así quien compra por segunda vez no tiene que volver a escribir su
+ *       documento, y nadie puede consultar los datos de otra persona.
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Datos de asistente de la cuenta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Asistente"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: API Key deshabilitada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       404:
+ *         description: La cuenta todavía no tiene datos de asistente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       429:
+ *         description: Demasiadas peticiones
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       500:
+ *         description: Error interno del servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ */
+router.get("/mio", autenticarJWT, asistentesController.obtenerMiAsistente);
+
+// ========================================
+// POST /api/asistentes/mio
+// ========================================
+/**
+ * @openapi
+ * /api/asistentes/mio:
+ *   post:
+ *     tags: [Asistentes]
+ *     summary: Liga unos datos de asistente a la cuenta autenticada
+ *     description: >
+ *       Solo hace falta la primera vez. El vínculo con la cuenta lo pone el
+ *       servidor desde el token: usuarioId no se declara en el validador.
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: "#/components/schemas/AsistenteEntrada"
+ *     responses:
+ *       201:
+ *         description: Asistente creado y ligado a la cuenta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/RespuestaAsistente"
+ *       400:
+ *         description: Datos de entrada inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ErrorValidacion"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: API Key deshabilitada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       409:
+ *         description: La cuenta ya tiene datos de asistente, o el documento ya está registrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       429:
+ *         description: Demasiadas peticiones
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       500:
+ *         description: Error interno del servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ */
+router.post(
+  "/mio",
+  autenticarJWT,
+  validarCreacionAsistente,
+  validar,
+  asistentesController.crearMiAsistente
+);
 
 // ========================================
 // GET /api/asistentes/:id
