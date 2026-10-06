@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Teatro Maldonado de Tunja · Cartelera</title>
+    <meta
+      name="description"
+      content="Cartelera y venta de boletería del Teatro Maldonado de Tunja."
+    />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="fuentes/archivo-black-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fuentes/libre-franklin-variable.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/sala.css" />
+  </head>
+
+  <body>
+    <div class="telon" aria-hidden="true">
+      <div class="telon__hoja"></div>
+      <div class="telon__hoja"></div>
+    </div>
+
+    <a class="saltar" href="#vista">Ir al contenido</a>
+
+    <header class="marquesina">
+      <p class="marquesina__nombre">
+        <a href="#/">Teatro Maldonado</a>
+        <span class="marquesina__lugar">Tunja · Boyacá</span>
+      </p>
+      <nav class="marquesina__enlaces" aria-label="Secciones">
+        <a href="#/">Cartelera</a>
+        <span id="sesion"></span>
+      </nav>
+    </header>
+
+    <main id="vista" tabindex="-1"></main>
+
+    <footer class="pie">
+      <p>Teatro Maldonado de Tunja · Sala única, 450 butacas</p>
+      <p>Taquilla: martes a domingo, 10:00 a 19:00</p>
+    </footer>
+
+    <script src="config.js"></script>
+    <script type="module" src="js/sala.js"></script>
+  </body>
+</html>

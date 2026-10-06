@@ -10,6 +10,7 @@ const { generarHash } = require("../utils/crypto.util");
 const clavesConfiguradas = [
   process.env.API_KEY_POSTMAN,
   process.env.API_KEY_TAQUILLA,
+  process.env.API_KEY_WEB,
   process.env.API_KEY_MOVIL
 ];
 
@@ -42,6 +43,13 @@ const apiKeys = [
     hash: generarHash(process.env.API_KEY_MOVIL),
     activa: false,
     creadaEn: "2026-09-21"
+  },
+  {
+    id: 4,
+    cliente: "Aplicación Web",
+    hash: generarHash(process.env.API_KEY_WEB),
+    activa: true,
+    creadaEn: "2026-10-05"
   }
 ];
 

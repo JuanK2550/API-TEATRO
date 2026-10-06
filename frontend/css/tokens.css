@@ -1,0 +1,103 @@
+/* ========================================
+   Fuentes
+   Descargadas en el proyecto: nada se pide a un CDN
+   ======================================== */
+@font-face {
+  font-family: "Archivo Black";
+  src: url("../fuentes/archivo-black-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Libre Franklin";
+  src: url("../fuentes/libre-franklin-variable.woff2") format("woff2-variations");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Courier Prime";
+  src: url("../fuentes/courier-prime-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Courier Prime";
+  src: url("../fuentes/courier-prime-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ========================================
+   Sala: el mundo del público
+   ======================================== */
+:root {
+  /* Telón */
+  --telon: #58101a;
+  --telon-hondo: #3d0a12;
+  --telon-borde: #731a26;
+
+  /* Luz */
+  --oro: #c8a24a;
+  --oro-tenue: #8d7334;
+  --luz: #ffd9a0;
+
+  /* Papel */
+  --marfil: #f4ecdc;
+  --marfil-tenue: #d6c3ae;
+
+  /* Estados, siempre acompañados de su palabra */
+  --estado-venta: #8fd3a8;
+  --estado-espera: #e8bf72;
+  --estado-agotada: #e9a6a0;
+  --estado-cerrada: #b9a79c;
+
+  /* Tipos */
+  --cartel: "Archivo Black", serif;
+  --texto: "Libre Franklin", system-ui, sans-serif;
+  --dato: "Courier Prime", ui-monospace, monospace;
+
+  /* Escala tipográfica */
+  --t-cartel: clamp(2.75rem, 9vw, 5.5rem);
+  --t-titulo: clamp(1.5rem, 3.4vw, 2.25rem);
+  --t-pieza: clamp(1.15rem, 2vw, 1.4rem);
+  --t-base: 1rem;
+  --t-dato: 0.875rem;
+  --t-menudo: 0.78rem;
+
+  /* Ritmo vertical */
+  --e1: 0.25rem;
+  --e2: 0.5rem;
+  --e3: 0.75rem;
+  --e4: 1rem;
+  --e5: 1.5rem;
+  --e6: 2.25rem;
+  --e7: 3.5rem;
+  --e8: 5.5rem;
+
+  /* Trazo */
+  --filete: 1px solid rgba(200, 162, 74, 0.38);
+  --filete-firme: 1px solid var(--oro);
+  --radio: 12px;
+  --radio-control: 999px;
+
+  /* Movimiento */
+  --salida: cubic-bezier(0.23, 1, 0.32, 1);
+  --telon-curva: cubic-bezier(0.32, 0.72, 0, 1);
+  --rapido: 120ms;
+  --medio: 180ms;
+  /* La salida dura dos tercios de la entrada: esperar a que algo se vaya se
+     siente lento, verlo llegar no. */
+  --entra: 240ms;
+  --sale: 150ms;
+  --panel: 260ms;
+  --telon-tiempo: 520ms;
+
+  --ancho-sala: 76rem;
+}
