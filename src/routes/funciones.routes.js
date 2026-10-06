@@ -155,6 +155,19 @@ const router = express.Router();
  *           type: string
  *           enum: [programada, en_venta, agotada, en_curso, finalizada, cancelada]
  *           example: en_venta
+ *     ButacaOcupada:
+ *       type: object
+ *       description: Una butaca tomada. Solo dice dónde está, nunca de quién es.
+ *       properties:
+ *         localidadId:
+ *           type: integer
+ *           example: 2
+ *         fila:
+ *           type: integer
+ *           example: 4
+ *         numero:
+ *           type: integer
+ *           example: 12
  *     TarifasDeFuncion:
  *       type: object
  *       properties:
@@ -325,6 +338,68 @@ router.get(
   validarIdFuncion,
   validar,
   funcionesController.obtenerTarifasDeFuncion
+);
+
+// ========================================
+// GET /api/funciones/:id/ocupacion
+// ========================================
+/**
+ * @openapi
+ * /api/funciones/{id}/ocupacion:
+ *   get:
+ *     tags: [Funciones]
+ *     summary: Butacas ocupadas de una función
+ *     description: >
+ *       Devuelve solo la localidad, la fila y el número de las butacas tomadas
+ *       por boletas no canceladas. No incluye el código de la boleta, su precio
+ *       ni el asistente que la compró: el plano de sala no necesita esos datos y
+ *       exponerlos revelaría quién compró cada butaca.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: Butacas ocupadas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: "#/components/schemas/ButacaOcupada"
+ *       400:
+ *         description: Id inválido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ErrorValidacion"
+ *       404:
+ *         description: Función no encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       429:
+ *         description: Demasiadas peticiones
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       500:
+ *         description: Error interno del servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ */
+router.get(
+  "/:id/ocupacion",
+  validarIdFuncion,
+  validar,
+  funcionesController.obtenerOcupacionDeFuncion
 );
 
 // ========================================
