@@ -4,6 +4,7 @@
 const express = require("express");
 
 const boletasController = require("../controllers/boletas.controller");
+const autenticarJWT = require("../middlewares/auth.middleware");
 const { validar } = require("../middlewares/validar.middleware");
 const {
   validarIdBoleta,
@@ -179,6 +180,60 @@ const router = express.Router();
  *               $ref: "#/components/schemas/Error"
  */
 router.get("/", boletasController.obtenerBoletas);
+
+// ========================================
+// GET /api/boletas/mias
+// Va antes que /:id: si no, "mias" entraría como un id
+// ========================================
+/**
+ * @openapi
+ * /api/boletas/mias:
+ *   get:
+ *     tags: [Boletas]
+ *     summary: Lista las boletas de la cuenta autenticada
+ *     description: >
+ *       El asistente se resuelve desde el token. A diferencia de
+ *       /api/boletas/asistente/{asistenteId}, aquí no hay ningún id que cambiar
+ *       para leer las boletas de otra persona. Devuelve un array vacío si la
+ *       cuenta todavía no tiene datos de asistente.
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Boletas de la cuenta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: "#/components/schemas/Boleta"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: API Key deshabilitada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       429:
+ *         description: Demasiadas peticiones
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       500:
+ *         description: Error interno del servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ */
+router.get("/mias", autenticarJWT, boletasController.obtenerMisBoletas);
 
 // ========================================
 // GET /api/boletas/asistente/:asistenteId

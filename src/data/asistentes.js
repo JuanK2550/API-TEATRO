@@ -10,7 +10,8 @@ const asistentes = [
     documento: "1049632178",
     email: "laura.pineda@correo.com",
     telefono: "3124567890",
-    fechaNacimiento: "1995-03-14"
+    fechaNacimiento: "1995-03-14",
+    usuarioId: null
   },
   {
     id: 2,
@@ -18,7 +19,8 @@ const asistentes = [
     documento: "74381205",
     email: "andres.rodriguez@correo.com",
     telefono: "3005512233",
-    fechaNacimiento: "1988-11-02"
+    fechaNacimiento: "1988-11-02",
+    usuarioId: null
   },
   {
     id: 3,
@@ -26,7 +28,8 @@ const asistentes = [
     documento: "1002784561",
     email: "camila.vargas@correo.com",
     telefono: "3187744120",
-    fechaNacimiento: "2004-07-21"
+    fechaNacimiento: "2004-07-21",
+    usuarioId: null
   },
   {
     id: 4,
@@ -34,7 +37,8 @@ const asistentes = [
     documento: "6764312",
     email: "jorge.buitrago@correo.com",
     telefono: "3112298745",
-    fechaNacimiento: "1957-02-08"
+    fechaNacimiento: "1957-02-08",
+    usuarioId: null
   },
   {
     id: 5,
@@ -42,7 +46,8 @@ const asistentes = [
     documento: "1099887766",
     email: "familia.mesa@correo.com",
     telefono: "3209981122",
-    fechaNacimiento: "2016-05-30"
+    fechaNacimiento: "2016-05-30",
+    usuarioId: null
   }
 ];
 

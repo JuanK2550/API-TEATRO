@@ -37,16 +37,31 @@ const buscarAsistentePorDocumento = (documento, idExcluido = null) => {
 };
 
 // ========================================
-// Crear
+// Buscar por usuario
+// Qué asistente corresponde a una cuenta
 // ========================================
-const crearAsistente = (datos) => {
+const buscarAsistentePorUsuario = (usuarioId) => {
+  const asistente = asistentes.find((a) => a.usuarioId === Number(usuarioId));
+  return asistente || null;
+};
+
+// ========================================
+// Crear
+// usuarioId lo pone el controlador desde el token, nunca el cliente
+// ========================================
+// El cliente no declara usuarioId en ningún validador, así que matchedData lo
+// descarta. El vínculo con la cuenta sale del JWT o se queda en null: es la
+// diferencia entre un asistente que se identifica solo y uno que registró la
+// taquilla.
+const crearAsistente = (datos, usuarioId = null) => {
   const asistente = {
     id: generarId(),
     nombre: datos.nombre,
     documento: datos.documento,
     email: datos.email,
     telefono: datos.telefono,
-    fechaNacimiento: datos.fechaNacimiento
+    fechaNacimiento: datos.fechaNacimiento,
+    usuarioId: usuarioId === null ? null : Number(usuarioId)
   };
 
   asistentes.push(asistente);
@@ -67,7 +82,8 @@ const actualizarAsistente = (id, datos) => {
     documento: datos.documento,
     email: datos.email,
     telefono: datos.telefono,
-    fechaNacimiento: datos.fechaNacimiento
+    fechaNacimiento: datos.fechaNacimiento,
+    usuarioId: asistentes[indice].usuarioId
   };
 
   return asistentes[indice];
@@ -89,7 +105,8 @@ const actualizarAsistenteParcial = (id, datos) => {
     documento: datos.documento ?? actual.documento,
     email: datos.email ?? actual.email,
     telefono: datos.telefono ?? actual.telefono,
-    fechaNacimiento: datos.fechaNacimiento ?? actual.fechaNacimiento
+    fechaNacimiento: datos.fechaNacimiento ?? actual.fechaNacimiento,
+    usuarioId: actual.usuarioId
   };
 
   return asistentes[indice];
@@ -113,6 +130,7 @@ module.exports = {
   obtenerAsistentes,
   obtenerAsistentePorId,
   buscarAsistentePorDocumento,
+  buscarAsistentePorUsuario,
   crearAsistente,
   actualizarAsistente,
   actualizarAsistenteParcial,

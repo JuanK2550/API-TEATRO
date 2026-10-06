@@ -34,6 +34,49 @@ const obtenerAsistentePorId = (req, res) => {
 };
 
 // ========================================
+// GET /mio
+// Los datos de asistente de quien presenta el token
+// ========================================
+// El id no viaja en la dirección: sale del token. Así nadie puede pedir los
+// datos de otra persona cambiando un número, y la Sala no necesita preguntar
+// si un documento existe.
+const obtenerMiAsistente = (req, res) => {
+  const asistente = asistentesService.buscarAsistentePorUsuario(req.usuario.id);
+
+  if (!asistente) {
+    return res
+      .status(404)
+      .json({ mensaje: "Tu cuenta todavía no tiene datos de asistente" });
+  }
+
+  res.status(200).json(asistente);
+};
+
+// ========================================
+// POST /mio
+// Liga unos datos de asistente a la cuenta del token
+// ========================================
+const crearMiAsistente = (req, res) => {
+  const datos = leerDatos(req);
+
+  if (asistentesService.buscarAsistentePorUsuario(req.usuario.id)) {
+    return res
+      .status(409)
+      .json({ mensaje: "Tu cuenta ya tiene datos de asistente" });
+  }
+
+  if (asistentesService.buscarAsistentePorDocumento(datos.documento)) {
+    return res
+      .status(409)
+      .json({ mensaje: "Ese documento ya está registrado en el teatro" });
+  }
+
+  const asistente = asistentesService.crearAsistente(datos, req.usuario.id);
+
+  res.status(201).json({ mensaje: "Asistente creado correctamente", asistente });
+};
+
+// ========================================
 // POST
 // El documento no se puede repetir
 // ========================================
@@ -136,6 +179,8 @@ const eliminarAsistente = (req, res) => {
 module.exports = {
   obtenerAsistentes,
   obtenerAsistentePorId,
+  obtenerMiAsistente,
+  crearMiAsistente,
   crearAsistente,
   actualizarAsistente,
   actualizarAsistenteParcial,
