@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Teatro Maldonado">
+  <rect width="32" height="32" fill="#3d0a12" />
+  <path d="M4 3h7l-1.6 18.5a6.4 6.4 0 0 1-5.4 5.8z" fill="#58101a" />
+  <path d="M28 3h-7l1.6 18.5a6.4 6.4 0 0 0 5.4 5.8z" fill="#58101a" />
+  <path d="M13 3h6v10.5l-3 2.4-3-2.4z" fill="#c8a24a" />
+  <rect x="4" y="28" width="24" height="1.6" fill="#c8a24a" />
+</svg>

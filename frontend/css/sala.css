@@ -1,0 +1,1909 @@
+/* ========================================
+   Base
+   ======================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scrollbar-color: var(--oro-tenue) var(--telon-hondo);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--telon-hondo);
+  color: var(--marfil);
+  font-family: var(--texto);
+  font-size: var(--t-base);
+  line-height: 1.6;
+  text-rendering: optimizeLegibility;
+}
+
+/* Las superficies que no dibujamos también son del teatro */
+::selection {
+  background: var(--oro);
+  color: var(--telon-hondo);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--telon-hondo);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--oro-tenue);
+}
+
+:focus-visible {
+  outline: 2px solid var(--luz);
+  outline-offset: 3px;
+}
+
+h1,
+h2,
+h3,
+p,
+figure,
+ul {
+  margin: 0;
+}
+
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration-color: var(--oro);
+  text-underline-offset: 0.22em;
+}
+
+.a-fondo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ========================================
+   Telón: se abre una vez por sesión
+   ======================================== */
+.telon {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  pointer-events: none;
+}
+
+.telon__hoja {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--telon-hondo) 0 14px,
+      var(--telon) 14px 44px,
+      var(--telon-borde) 44px 46px
+    );
+  transition: transform var(--telon-tiempo) var(--telon-curva);
+  will-change: transform;
+}
+
+.telon--abierto .telon__hoja:first-child {
+  transform: translateX(-101%);
+}
+
+.telon--abierto .telon__hoja:last-child {
+  transform: translateX(101%);
+}
+
+.telon--guardado {
+  display: none;
+}
+
+/* ========================================
+   Encabezado
+   ======================================== */
+.marquesina {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e4);
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--e4) var(--e5);
+  background: color-mix(in srgb, var(--telon-hondo) 88%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: var(--filete);
+}
+
+.marquesina__nombre {
+  font-family: var(--cartel);
+  font-size: var(--t-pieza);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.marquesina__lugar {
+  display: block;
+  font-family: var(--dato);
+  font-size: var(--t-menudo);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--oro);
+  margin-top: var(--e1);
+}
+
+.marquesina__enlaces {
+  display: flex;
+  align-items: center;
+  gap: var(--e5);
+  font-size: var(--t-dato);
+}
+
+/* Alto mínimo de 24px: es el tamaño de destino que pide la WCAG 2.2 para
+   cualquier control que se señale con el puntero. */
+.marquesina__enlaces a,
+#sesion a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+}
+
+/* La sección en la que se está no es solo un enlace más. */
+.marquesina__enlaces a[aria-current="page"] {
+  color: var(--luz);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.3em;
+}
+
+/* El guion mete uno o dos enlaces aquí según haya sesión. */
+#sesion {
+  display: flex;
+  gap: var(--e5);
+}
+
+/* ========================================
+   Primer viewport: la próxima función
+   ======================================== */
+.funcion-cabeza {
+  position: relative;
+  min-height: min(84dvh, 46rem);
+  display: grid;
+  align-items: end;
+  overflow: hidden;
+  border-bottom: var(--filete-firme);
+}
+
+.duotono {
+  position: absolute;
+  inset: 0;
+  background: var(--oro);
+  overflow: hidden;
+}
+
+.duotono img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.08) brightness(0.92);
+  mix-blend-mode: multiply;
+}
+
+.duotono::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--telon);
+  mix-blend-mode: lighten;
+  opacity: 0.78;
+}
+
+.funcion-cabeza__velo {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to top,
+      var(--telon-hondo) 4%,
+      color-mix(in srgb, var(--telon-hondo) 72%, transparent) 38%,
+      transparent 76%
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--telon-hondo) 70%, transparent) 0%,
+      transparent 22%
+    );
+}
+
+.funcion-cabeza__texto {
+  position: relative;
+  width: min(100% - 2.5rem, var(--ancho-sala));
+  margin-inline: auto;
+  padding-block: var(--e7) var(--e6);
+  display: grid;
+  gap: var(--e4);
+}
+
+.funcion-cabeza__titulo {
+  font-family: var(--cartel);
+  font-size: var(--t-cartel);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  max-width: 18ch;
+}
+
+.ficha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e3) var(--e4);
+  font-family: var(--dato);
+  font-size: var(--t-dato);
+  letter-spacing: 0.06em;
+  color: var(--marfil);
+}
+
+.ficha__dato {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+}
+
+.ficha__dato + .ficha__dato::before {
+  content: "";
+  width: 1px;
+  height: 1.1em;
+  margin-right: var(--e2);
+  background: var(--oro);
+}
+
+.funcion-cabeza__cierre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e5);
+  margin-top: var(--e2);
+}
+
+@media (min-width: 64rem) {
+  .funcion-cabeza__texto {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    column-gap: var(--e7);
+  }
+
+  .funcion-cabeza__titulo,
+  .funcion-cabeza .ficha {
+    grid-column: 1;
+  }
+
+  .funcion-cabeza__cierre {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: var(--e4);
+    margin-top: 0;
+  }
+}
+
+.precio {
+  font-family: var(--dato);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.precio__rotulo {
+  display: block;
+  font-size: var(--t-menudo);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--oro);
+}
+
+.precio__cifra {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* ========================================
+   Controles
+   ======================================== */
+.boton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+  min-height: 48px;
+  padding: 0 var(--e5);
+  border: none;
+  border-radius: var(--radio-control);
+  background: var(--oro);
+  color: var(--telon-hondo);
+  font-family: var(--texto);
+  font-size: var(--t-base);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform var(--rapido) var(--salida),
+    background-color var(--medio) ease;
+}
+
+/* El realce solo donde hay puntero: en una pantalla táctil se queda pegado
+   después del toque y parece que el botón sigue activo. */
+@media (hover: hover) {
+  .boton:hover {
+    background: var(--luz);
+  }
+
+  .boton--fantasma:hover {
+    background: color-mix(in srgb, var(--oro) 16%, transparent);
+  }
+}
+
+.boton:active {
+  transform: scale(0.97);
+}
+
+.boton--fantasma {
+  background: transparent;
+  color: var(--marfil);
+  border: var(--filete-firme);
+}
+
+.boton[disabled],
+.boton[aria-disabled="true"] {
+  background: var(--telon-borde);
+  color: var(--marfil-tenue);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.icono {
+  width: 1.1em;
+  height: 1.1em;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ========================================
+   Cartelera
+   ======================================== */
+.cartelera {
+  width: min(100% - 2.5rem, var(--ancho-sala));
+  margin-inline: auto;
+  padding-block: var(--e8) var(--e7);
+}
+
+.cartelera__titulo {
+  font-family: var(--cartel);
+  font-size: var(--t-titulo);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.cartelera__nota {
+  margin-top: var(--e3);
+  max-width: 62ch;
+  color: var(--marfil-tenue);
+}
+
+.jornada {
+  margin-top: var(--e7);
+}
+
+.jornada__fecha {
+  position: sticky;
+  top: 5.2rem;
+  padding-bottom: var(--e2);
+  font-family: var(--dato);
+  font-size: var(--t-dato);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--oro);
+  background: var(--telon-hondo);
+  border-bottom: var(--filete);
+}
+
+.funcion {
+  display: grid;
+  grid-template-columns: 7rem 1fr auto;
+  gap: var(--e4) var(--e5);
+  align-items: center;
+  padding-block: var(--e5);
+  border-bottom: var(--filete);
+}
+
+.funcion--entra {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: entrar 320ms var(--salida) forwards;
+}
+
+@keyframes entrar {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.funcion__hora {
+  font-family: var(--dato);
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--luz);
+}
+
+.funcion__obra {
+  font-family: var(--cartel);
+  font-size: var(--t-pieza);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.funcion__ficha {
+  margin-top: var(--e2);
+  color: var(--marfil-tenue);
+  font-size: var(--t-dato);
+}
+
+.funcion__cierre {
+  display: grid;
+  justify-items: end;
+  gap: var(--e3);
+}
+
+/* ========================================
+   Estado: color acompañado siempre de la palabra
+   ======================================== */
+.estado {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+  font-family: var(--dato);
+  font-size: var(--t-menudo);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--marfil);
+}
+
+.estado::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  flex: none;
+  background: var(--estado-cerrada);
+}
+
+.estado--en_venta::before {
+  background: var(--estado-venta);
+  border-radius: 50%;
+}
+
+.estado--programada::before {
+  background: var(--estado-espera);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.estado--agotada::before {
+  background: var(--estado-agotada);
+}
+
+.estado--cancelada::before,
+.estado--finalizada::before,
+.estado--en_curso::before {
+  background: var(--estado-cerrada);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+/* ========================================
+   Estados de la página
+   ======================================== */
+.aviso {
+  margin-top: var(--e6);
+  padding: var(--e5);
+  border: var(--filete);
+  border-radius: var(--radio);
+  background: color-mix(in srgb, var(--telon) 55%, transparent);
+}
+
+.aviso__titulo {
+  font-family: var(--cartel);
+  font-size: var(--t-pieza);
+  letter-spacing: -0.02em;
+}
+
+.aviso__cuerpo {
+  margin-top: var(--e3);
+  max-width: 60ch;
+  color: var(--marfil-tenue);
+}
+
+.aviso__cuerpo code {
+  font-family: var(--dato);
+  color: var(--luz);
+}
+
+.esqueleto {
+  display: grid;
+  gap: var(--e4);
+  margin-top: var(--e6);
+}
+
+.esqueleto__linea {
+  height: 4.5rem;
+  border-bottom: var(--filete);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--telon) 40%, transparent) 0%,
+    color-mix(in srgb, var(--telon-borde) 55%, transparent) 50%,
+    color-mix(in srgb, var(--telon) 40%, transparent) 100%
+  );
+  background-size: 220% 100%;
+  animation: respirar 1400ms ease-in-out infinite;
+}
+
+@keyframes respirar {
+  0%,
+  100% {
+    background-position: 0% 0;
+  }
+  50% {
+    background-position: 100% 0;
+  }
+}
+
+/* ========================================
+   Pie
+   ======================================== */
+.pie {
+  width: min(100% - 2.5rem, var(--ancho-sala));
+  margin-inline: auto;
+  padding-block: var(--e6) var(--e7);
+  border-top: var(--filete);
+  color: var(--marfil-tenue);
+  font-size: var(--t-dato);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e3) var(--e5);
+  justify-content: space-between;
+}
+
+/* ========================================
+   Pantallas pequeñas
+   ======================================== */
+@media (max-width: 42rem) {
+  .funcion {
+    grid-template-columns: 5rem 1fr;
+  }
+
+  .funcion__cierre {
+    grid-column: 1 / -1;
+    justify-items: start;
+    grid-auto-flow: column;
+    align-items: center;
+    gap: var(--e5);
+  }
+
+  .funcion-cabeza {
+    min-height: min(78dvh, 34rem);
+  }
+
+  .jornada__fecha {
+    top: 4.6rem;
+  }
+
+  .ficha {
+    display: grid;
+    gap: var(--e1);
+  }
+
+  .ficha__dato + .ficha__dato::before {
+    display: none;
+  }
+}
+
+/* ========================================
+   Menos movimiento
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+  .telon__hoja {
+    transition: opacity 200ms ease;
+  }
+
+  .telon--abierto .telon__hoja {
+    transform: none;
+    opacity: 0;
+  }
+
+  .funcion--entra {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .esqueleto__linea {
+    animation: none;
+  }
+
+  .boton:active {
+    transform: none;
+  }
+}
+
+/* ========================================
+   Saltar al contenido
+   ======================================== */
+.saltar {
+  position: absolute;
+  left: var(--e4);
+  top: var(--e4);
+  z-index: 60;
+  padding: var(--e2) var(--e4);
+  background: var(--oro);
+  color: var(--telon-hondo);
+  border-radius: var(--radio-control);
+  font-weight: 600;
+  transform: translateY(-200%);
+  transition: transform var(--medio) var(--salida);
+}
+
+.saltar:focus-visible {
+  transform: none;
+}
+
+#vista:focus {
+  outline: none;
+}
+
+/* ========================================
+   Pliego: la hoja de contenido de cada vista
+   ======================================== */
+.pliego {
+  width: min(100% - 2.5rem, var(--ancho-sala));
+  margin-inline: auto;
+  padding-block: var(--e7);
+}
+
+.pliego--angosto {
+  width: min(100% - 2.5rem, 34rem);
+}
+
+.pliego__titulo {
+  font-family: var(--cartel);
+  font-size: var(--t-titulo);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin-top: var(--e3);
+}
+
+.pliego__rotulo {
+  margin-top: var(--e6);
+  font-family: var(--dato);
+  font-size: var(--t-dato);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--oro);
+}
+
+.pliego__entrada {
+  margin-top: var(--e4);
+  max-width: 68ch;
+  font-size: 1.05rem;
+  color: var(--marfil);
+}
+
+.pliego__nota {
+  margin-top: var(--e3);
+  max-width: 68ch;
+  color: var(--marfil-tenue);
+  font-size: var(--t-dato);
+}
+
+.pliego__cuando {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2) var(--e4);
+  align-items: baseline;
+  margin-top: var(--e4);
+  font-family: var(--dato);
+}
+
+.pliego__fecha {
+  font-size: 1.1rem;
+}
+
+.pliego__hora {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--luz);
+  font-variant-numeric: tabular-nums;
+}
+
+.pliego__estado {
+  margin-top: var(--e3);
+}
+
+.pliego__cierre {
+  margin-top: var(--e6);
+}
+
+.volver {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  gap: var(--e2);
+  font-family: var(--dato);
+  font-size: var(--t-dato);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--oro);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .volver:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ========================================
+   Portada del evento
+   ======================================== */
+.portada {
+  position: relative;
+  min-height: min(56dvh, 30rem);
+  display: grid;
+  align-items: end;
+  overflow: hidden;
+  border-bottom: var(--filete-firme);
+}
+
+.pliego__seccion {
+  margin-top: var(--e7);
+}
+
+/* La portada del evento deja respirar la fotografía: su velo arranca más abajo */
+.portada .funcion-cabeza__velo {
+  background:
+    linear-gradient(
+      to top,
+      var(--telon-hondo) 2%,
+      color-mix(in srgb, var(--telon-hondo) 58%, transparent) 30%,
+      transparent 62%
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--telon-hondo) 62%, transparent) 0%,
+      transparent 18%
+    );
+}
+
+.portada .duotono::after {
+  opacity: 0.66;
+}
+
+.portada__texto {
+  position: relative;
+  width: min(100% - 2.5rem, var(--ancho-sala));
+  margin-inline: auto;
+  padding-block: var(--e6) var(--e5);
+  display: grid;
+  gap: var(--e3);
+}
+
+.portada__titulo {
+  font-family: var(--cartel);
+  font-size: clamp(2rem, 5.5vw, 3.75rem);
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  max-width: 20ch;
+}
+
+.funciones-evento .funcion {
+  grid-template-columns: 10rem auto 1fr;
+}
+
+.funciones-evento .funcion__cierre {
+  justify-items: end;
+}
+
+/* ========================================
+   Cuadro de tarifas
+   ======================================== */
+.tarifas {
+  width: 100%;
+  margin-top: var(--e4);
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.tarifas th,
+.tarifas td {
+  text-align: left;
+  padding: var(--e3) var(--e4) var(--e3) 0;
+  border-bottom: var(--filete);
+  vertical-align: baseline;
+}
+
+.tarifas thead th {
+  font-family: var(--dato);
+  font-size: var(--t-menudo);
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--oro);
+}
+
+.tarifas tbody th {
+  font-weight: 600;
+}
+
+.tarifas__nombre {
+  display: block;
+}
+
+.tarifas__codigo {
+  display: block;
+  font-family: var(--dato);
+  font-size: var(--t-menudo);
+  letter-spacing: 0.08em;
+  color: var(--marfil-tenue);
+}
+
+.tarifas__orden {
+  color: var(--marfil-tenue);
+  font-size: var(--t-dato);
+}
+
+.tarifas__precio {
+  font-family: var(--dato);
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ========================================
+   Descuentos
+   ======================================== */
+.descuentos__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e3);
+  margin-top: var(--e4);
+}
+
+.descuento {
+  display: flex;
+  align-items: baseline;
+  gap: var(--e3);
+  padding: var(--e2) var(--e4);
+  border: var(--filete);
+  border-radius: var(--radio-control);
+}
+
+.descuento__nombre {
+  font-size: var(--t-dato);
+}
+
+.descuento__cifra {
+  font-family: var(--dato);
+  font-weight: 700;
+  color: var(--luz);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========================================
+   Formularios
+   ======================================== */
+.formulario {
+  display: grid;
+  gap: var(--e5);
+  margin-top: var(--e5);
+  max-width: 28rem;
+}
+
+.campo {
+  display: grid;
+  gap: var(--e2);
+}
+
+.campo__rotulo {
+  font-size: var(--t-dato);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.campo__entrada {
+  min-height: 48px;
+  padding: 0 var(--e4);
+  border: var(--filete-firme);
+  border-radius: var(--radio);
+  background: color-mix(in srgb, var(--telon) 45%, transparent);
+  color: var(--marfil);
+  font-family: var(--texto);
+  font-size: 1rem;
+  caret-color: var(--luz);
+}
+
+.campo__entrada::placeholder {
+  color: var(--marfil-tenue);
+}
+
+.campo__entrada:focus-visible {
+  outline: 2px solid var(--luz);
+  outline-offset: 2px;
+}
+
+.campo__ayuda {
+  font-size: var(--t-menudo);
+  color: var(--marfil-tenue);
+}
+
+.campo__error {
+  font-size: var(--t-dato);
+  color: var(--estado-agotada);
+  font-weight: 600;
+}
+
+.campo__error:empty {
+  display: none;
+}
+
+.campo--malo .campo__entrada {
+  border-color: var(--estado-agotada);
+}
+
+.resumen-error {
+  margin-bottom: var(--e4);
+  padding: var(--e4);
+  border: 1px solid var(--estado-agotada);
+  border-radius: var(--radio);
+  background: color-mix(in srgb, var(--telon) 60%, transparent);
+  color: var(--marfil);
+  font-weight: 600;
+}
+
+.resumen-error:focus-visible {
+  outline: 2px solid var(--luz);
+  outline-offset: 2px;
+}
+
+/* El error no se cuenta solo con el color: lleva su icono y su frase. */
+.resumen-error__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  color: var(--estado-agotada);
+}
+
+.resumen-error__lista {
+  margin: var(--e3) 0 0;
+  padding-left: var(--e5);
+  font-weight: 400;
+  font-size: var(--t-dato);
+}
+
+.resumen-error__lista li + li {
+  margin-top: var(--e1);
+}
+
+/* Cada línea del resumen es un destino que se señala con el puntero: necesita
+   los 24px de alto, que el texto solo no alcanza. */
+.resumen-error__lista a {
+  display: inline-block;
+  padding-block: 4px;
+  color: var(--marfil);
+}
+
+/* ========================================
+   Pantallas pequeñas
+   ======================================== */
+@media (max-width: 42rem) {
+  .funciones-evento .funcion {
+    grid-template-columns: 1fr;
+  }
+
+  .funciones-evento .funcion__cierre {
+    justify-items: start;
+  }
+
+  .tarifas th,
+  .tarifas td {
+    padding-right: var(--e2);
+  }
+
+  .tarifas__orden {
+    font-size: var(--t-menudo);
+  }
+}
+
+/* ========================================
+   Botón de texto
+   Para acciones secundarias dentro de una lista
+   ======================================== */
+.boton--texto {
+  min-height: 44px;
+  padding: 0 var(--e3);
+  border: none;
+  border-radius: var(--radio-control);
+  background: transparent;
+  color: var(--marfil-tenue);
+  font-family: var(--texto);
+  font-size: var(--t-dato);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(214, 195, 174, 0.5);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .boton--texto:hover {
+    color: var(--marfil);
+  }
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e3);
+  margin-top: var(--e6);
+}
+
+/* ========================================
+   Franja de aviso
+   La sesión no sobrevive a una recarga, y se dice
+   ======================================== */
+.franja {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e3) var(--e4);
+  margin: 0 auto;
+  padding: var(--e3) var(--e5);
+  max-width: var(--ancho-sala);
+  border-bottom: var(--filete);
+  background: color-mix(in srgb, var(--telon) 55%, transparent);
+}
+
+.franja__texto {
+  font-size: var(--t-dato);
+  color: var(--marfil);
+}
+
+/* ========================================
+   Filtros de la cartelera
+   ======================================== */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+  margin-top: var(--e5);
+}
+
+.filtro {
+  min-height: 44px;
+  padding: 0 var(--e4);
+  border: var(--filete);
+  border-radius: var(--radio-control);
+  background: transparent;
+  color: var(--marfil-tenue);
+  font-family: var(--dato);
+  font-size: var(--t-dato);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background-color var(--medio) ease, color var(--medio) ease;
+}
+
+@media (hover: hover) {
+  .filtro:hover {
+    color: var(--marfil);
+    border-color: var(--oro);
+  }
+}
+
+.filtro[aria-pressed="true"] {
+  background: var(--oro);
+  border-color: var(--oro);
+  color: var(--telon-hondo);
+  font-weight: 700;
+}
+
+/* ========================================
+   Perfil
+   ======================================== */
+.perfil {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--e2) var(--e5);
+  margin-top: var(--e5);
+  padding: var(--e5);
+  border: var(--filete);
+  border-radius: var(--radio);
+}
+
+.perfil dt {
+  font-family: var(--dato);
+  font-size: var(--t-menudo);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--oro);
+}
+
+.perfil dd {
+  margin: 0;
+}
+
+/* ========================================
+   Plano de la sala
+   ======================================== */
+.plano-y-resumen {
+  display: grid;
+  gap: var(--e6);
+  margin-top: var(--e6);
+}
+
+@media (min-width: 64rem) {
+  .plano-y-resumen {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    align-items: start;
+  }
+}
+
+/* Sin esto, el elemento de la rejilla crece hasta el ancho del plano y el
+   desplazamiento interior de .sala nunca entra en juego. */
+.plano,
+.resumen {
+  min-width: 0;
+}
+
+.sala {
+  /* Un solo paso de butaca para las tres zonas: así el plano queda a escala y
+     el Balcón, de 25 por fila, es más ancho que la Platea General, de 20.
+     La butaca mide 25px y no se encoge: cuando no cabe, el plano se desliza. */
+  --paso: 28px;
+  --butaca: calc(var(--paso) - 3px);
+  padding: var(--e5) 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.sala__escenario {
+  margin: 0 auto var(--e6);
+  padding: var(--e2) var(--e6);
+  width: fit-content;
+  border-bottom: 3px solid var(--oro);
+  border-radius: 0 0 50% 50%;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--luz) 22%, transparent),
+    transparent
+  );
+  font-family: var(--dato);
+  font-size: var(--t-menudo);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--luz);
+}
+
+.zona + .zona {
+  margin-top: var(--e6);
+}
+
+.zona__encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e2) var(--e4);
+  margin-bottom: var(--e3);
+  padding-bottom: var(--e2);
+  border-bottom: var(--filete);
+}
+
+.zona__nombre {
+  font-family: var(--cartel);
+  font-size: var(--t-dato);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.zona__dato {
+  font-family: var(--dato);
+  font-size: var(--t-menudo);
+  color: var(--marfil-tenue);
+  font-variant-numeric: tabular-nums;
+}
+
+.zona__filas {
+  display: grid;
+  gap: 3px;
+}
+
+/* La fila mide lo que ocupan sus butacas: centrada mientras caben, pegada a la
+   izquierda cuando hay que deslizar el plano. */
+.fila {
+  display: flex;
+  gap: 3px;
+  width: max-content;
+  margin-inline: auto;
+}
+
+.fila__numero {
+  width: 1.5rem;
+  flex: none;
+  text-align: right;
+  padding-right: var(--e1);
+  font-family: var(--dato);
+  font-size: var(--t-menudo);
+  line-height: var(--butaca);
+  color: var(--marfil-tenue);
+  font-variant-numeric: tabular-nums;
+}
+
+/* La pista solo se ve cuando el plano de verdad se desliza: lo decide el
+   guion comparando el ancho del contenido con el visible. */
+.sala__pista {
+  margin-bottom: var(--e3);
+  font-size: var(--t-menudo);
+  color: var(--marfil-tenue);
+}
+
+/* ========================================
+   Butaca
+   Libre, ocupada y elegida se distinguen por forma, color y palabra
+   ======================================== */
+.butaca {
+  position: relative;
+  width: var(--butaca);
+  height: var(--butaca);
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--oro-tenue);
+  border-radius: 40% 40% 20% 20%;
+  background: color-mix(in srgb, var(--oro) 14%, transparent);
+  cursor: pointer;
+  transition: transform var(--rapido) var(--salida),
+    background-color var(--rapido) ease;
+}
+
+/* El realce al pasar por encima solo existe donde hay puntero de verdad: en
+   una pantalla táctil se quedaría pegado tras el toque. */
+@media (hover: hover) {
+  .butaca:hover {
+    background: color-mix(in srgb, var(--luz) 45%, transparent);
+    transform: scale(1.15);
+  }
+}
+
+.butaca:active {
+  transform: scale(0.9);
+  transition-duration: 90ms;
+}
+
+/* El foco aparece de golpe: moverlo con el teclado no debe animar nada. */
+.butaca:focus-visible {
+  outline: 2px solid var(--luz);
+  outline-offset: 2px;
+  z-index: 2;
+}
+
+/* La ocupada es cuadrada y tachada: no depende del color para leerse. */
+.butaca--ocupada {
+  border-radius: 2px;
+  border-color: var(--estado-cerrada);
+  background-color: color-mix(in srgb, var(--estado-cerrada) 24%, transparent);
+  background-image: linear-gradient(
+    45deg,
+    transparent 44%,
+    var(--estado-cerrada) 44%,
+    var(--estado-cerrada) 56%,
+    transparent 56%
+  );
+  cursor: not-allowed;
+}
+
+@media (hover: hover) {
+  .butaca--ocupada:hover {
+    transform: none;
+    background-color: color-mix(in srgb, var(--estado-cerrada) 24%, transparent);
+  }
+}
+
+/* ========================================
+   La butaca elegida
+   Un anillo de luz que crece desde la butaca
+   ======================================== */
+.butaca--elegida {
+  border-color: var(--luz);
+  background: var(--luz);
+  transform: scale(1.18);
+  z-index: 1;
+}
+
+/* El anillo es un pseudoelemento: crece y se funde con transform y opacity,
+   sin tocar el tamaño de la butaca ni provocar reflujo en las otras 449. */
+.butaca::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 2px solid var(--luz);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: transform 220ms var(--salida), opacity 220ms var(--salida);
+  pointer-events: none;
+}
+
+.butaca--elegida::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* La salida es más corta que la entrada: soltar una butaca no merece espera. */
+.butaca:not(.butaca--elegida)::after {
+  transition-duration: 130ms;
+}
+
+.leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e3) var(--e5);
+  margin-top: var(--e6);
+  padding-top: var(--e4);
+  border-top: var(--filete);
+  list-style: none;
+  font-size: var(--t-dato);
+  color: var(--marfil-tenue);
+}
+
+.leyenda li {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+}
+
+.leyenda .butaca {
+  --butaca: 16px;
+  pointer-events: none;
+}
+
+/* ========================================
+   Selector de localidad
+   En pantallas estrechas no caben las 450 butacas a la vez
+   ======================================== */
+.selector-zona {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+  margin-bottom: var(--e5);
+}
+
+/* display: flex le gana a la regla [hidden] del navegador: hay que repetirla. */
+.selector-zona[hidden] {
+  display: none;
+}
+
+.selector-zona__boton {
+  min-height: 48px;
+  padding: 0 var(--e4);
+  border: var(--filete);
+  border-radius: var(--radio);
+  background: transparent;
+  color: var(--marfil);
+  font-family: var(--texto);
+  font-size: var(--t-dato);
+  cursor: pointer;
+}
+
+.selector-zona__boton[aria-pressed="true"] {
+  border-color: var(--oro);
+  background: color-mix(in srgb, var(--oro) 18%, transparent);
+  font-weight: 700;
+}
+
+/* ========================================
+   El plano en pantalla estrecha
+   Las butacas no bajan de 24px: se desliza el plano, no se encogen
+   ======================================== */
+@media (max-width: 60rem) {
+  .sala {
+    padding-bottom: var(--e4);
+  }
+}
+
+/* ========================================
+   Resumen de la compra
+   ======================================== */
+.resumen {
+  padding: var(--e5);
+  border: var(--filete-firme);
+  border-radius: var(--radio);
+  background: color-mix(in srgb, var(--telon-hondo) 70%, transparent);
+}
+
+@media (min-width: 64rem) {
+  .resumen {
+    position: sticky;
+    top: var(--e5);
+  }
+}
+
+.resumen__titulo {
+  margin-bottom: var(--e4);
+  font-family: var(--cartel);
+  font-size: var(--t-pieza);
+}
+
+.resumen__vacio {
+  font-size: var(--t-dato);
+  color: var(--marfil-tenue);
+}
+
+.resumen__datos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: var(--e1) var(--e4);
+  margin-bottom: var(--e5);
+}
+
+.resumen__datos dt {
+  font-family: var(--dato);
+  font-size: var(--t-menudo);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--oro);
+}
+
+.resumen__datos dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.resumen__precio {
+  margin: var(--e5) 0 var(--e2);
+  font-family: var(--dato);
+  font-variant-numeric: tabular-nums;
+}
+
+.resumen__precio .precio__cifra {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.resumen__nota {
+  margin-bottom: var(--e5);
+  font-size: var(--t-menudo);
+  color: var(--marfil-tenue);
+}
+
+/* ========================================
+   Talón de la boleta
+   ======================================== */
+.talon {
+  display: grid;
+  margin-top: var(--e5);
+  max-width: 44rem;
+  border: var(--filete-firme);
+  border-radius: var(--radio);
+  background: color-mix(in srgb, var(--telon-hondo) 80%, transparent);
+  overflow: hidden;
+}
+
+@media (min-width: 48rem) {
+  .talon {
+    grid-template-columns: minmax(0, 1fr) 15rem;
+  }
+}
+
+.talon__cuerpo {
+  padding: var(--e6);
+}
+
+.talon__sello {
+  font-family: var(--dato);
+  font-size: var(--t-menudo);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--oro);
+}
+
+.talon__obra {
+  margin: var(--e3) 0 var(--e2);
+  font-family: var(--cartel);
+  font-size: var(--t-titulo);
+  line-height: 1.05;
+}
+
+.talon__cuando {
+  font-size: var(--t-dato);
+  color: var(--marfil-tenue);
+}
+
+.talon__datos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: var(--e1) var(--e5);
+  margin-top: var(--e5);
+  padding-top: var(--e4);
+  border-top: var(--filete);
+}
+
+.talon__datos dt {
+  font-family: var(--dato);
+  font-size: var(--t-menudo);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--oro);
+}
+
+.talon__datos dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* El troquel: la línea de puntos por donde se rompe la colilla. */
+.talon__colilla {
+  display: grid;
+  align-content: start;
+  gap: var(--e2);
+  padding: var(--e6);
+  border-top: 2px dashed var(--oro-tenue);
+  background: color-mix(in srgb, var(--telon) 40%, transparent);
+}
+
+@media (min-width: 48rem) {
+  .talon__colilla {
+    border-top: none;
+    border-left: 2px dashed var(--oro-tenue);
+  }
+}
+
+.talon__rotulo {
+  font-family: var(--dato);
+  font-size: var(--t-menudo);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--oro);
+}
+
+.talon__codigo {
+  margin-bottom: var(--e4);
+  font-family: var(--dato);
+  font-size: 1.1rem;
+  white-space: nowrap;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--luz);
+}
+
+.talon__precio {
+  margin-bottom: var(--e4);
+  font-family: var(--dato);
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========================================
+   Pago simulado
+   El rótulo deja claro que aquí no se cobra nada
+   ======================================== */
+.simulacion {
+  margin-top: var(--e6);
+  padding: var(--e5);
+  border: 1px dashed var(--estado-espera);
+  border-radius: var(--radio);
+}
+
+.simulacion__sello {
+  display: inline-block;
+  margin-bottom: var(--e3);
+  padding: var(--e1) var(--e3);
+  border-radius: var(--radio-control);
+  background: var(--estado-espera);
+  color: var(--telon-hondo);
+  font-family: var(--dato);
+  font-size: var(--t-menudo);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.simulacion__cuerpo {
+  margin-bottom: var(--e5);
+  max-width: 48ch;
+  font-size: var(--t-dato);
+  color: var(--marfil-tenue);
+}
+
+/* ========================================
+   Mis boletas
+   ======================================== */
+.boletas {
+  display: grid;
+  gap: var(--e4);
+  margin-top: var(--e6);
+  list-style: none;
+}
+
+.boleta {
+  display: grid;
+  gap: var(--e4) var(--e6);
+  align-items: center;
+  padding: var(--e5);
+  border: var(--filete);
+  border-radius: var(--radio);
+}
+
+@media (min-width: 56rem) {
+  .boleta {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) auto auto;
+  }
+}
+
+.boleta__codigo {
+  font-family: var(--dato);
+  font-size: var(--t-dato);
+  letter-spacing: 0.08em;
+  color: var(--luz);
+}
+
+.boleta__obra {
+  margin: var(--e1) 0;
+  font-family: var(--cartel);
+  font-size: var(--t-pieza);
+  line-height: 1.1;
+}
+
+.boleta__ficha {
+  font-size: var(--t-menudo);
+  color: var(--marfil-tenue);
+}
+
+.boleta__sitio {
+  font-family: var(--dato);
+  font-size: var(--t-dato);
+  font-variant-numeric: tabular-nums;
+}
+
+.boleta__cierre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e3);
+}
+
+/* ========================================
+   La marquesina no tapa lo que recibe el foco
+   ======================================== */
+/* Es fija y mide algo más de 4rem. Sin este margen, al saltar a un campo o a
+   un paso de la compra el navegador lo deja justo debajo de ella. */
+#vista :is(input, select, textarea, button, a, .pliego__seccion, .campo, .zona) {
+  scroll-margin-top: 6rem;
+}
+
+/* ========================================
+   Movimiento
+   Solo transform y opacity: nada que obligue a recalcular la página
+   ======================================== */
+/* ========================================
+   El resumen de la compra
+   Entra cuando hay butaca y sale cuando se suelta
+   ======================================== */
+.resumen__cuerpo {
+  opacity: 1;
+  transform: none;
+  transition: opacity var(--entra) var(--salida),
+    transform var(--entra) var(--salida);
+}
+
+.resumen__cuerpo[data-movimiento="entra"] {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.resumen__cuerpo[data-movimiento="sale"] {
+  opacity: 0;
+  transform: translateY(-6px);
+  transition-duration: var(--sale);
+}
+
+/* Al cambiar el descuento no se mueve el panel entero: solo la cifra, que es
+   lo único que cambió. */
+.precio__cifra[data-movimiento="cambia"] {
+  animation: cifra 200ms var(--salida);
+}
+
+@keyframes cifra {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* ========================================
+   Paso siguiente de la compra
+   ======================================== */
+.pliego__seccion[data-movimiento="entra"] {
+  animation: paso var(--entra) var(--salida) both;
+}
+
+@keyframes paso {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+/* ========================================
+   La boleta recién emitida
+   Entra desde abajo, como el talón que sale de la máquina
+   ======================================== */
+.talon[data-movimiento="emitida"] {
+  animation: emitida 360ms var(--salida) both;
+}
+
+@keyframes emitida {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+}
+
+/* ========================================
+   Cambio de estado de la boleta
+   El sello nuevo se posa, para que se vea que cambió
+   ======================================== */
+.estado[data-movimiento="cambia"] {
+  animation: sello 220ms var(--salida) both;
+}
+
+@keyframes sello {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+}
+
+/* ========================================
+   Formularios
+   ======================================== */
+.campo__entrada {
+  transition: border-color var(--rapido) ease,
+    background-color var(--rapido) ease;
+}
+
+@media (hover: hover) {
+  .campo__entrada:hover {
+    border-color: var(--luz);
+  }
+}
+
+/* El foco entra de golpe: con el teclado no se anima nada. */
+.campo__entrada:focus-visible {
+  transition: none;
+}
+
+.campo__error:not(:empty),
+.resumen-error {
+  animation: aparece 180ms var(--salida) both;
+}
+
+@keyframes aparece {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* ========================================
+   Controles
+   ======================================== */
+.boton--texto,
+.filtro,
+.selector-zona__boton {
+  transition: transform var(--rapido) var(--salida),
+    background-color var(--medio) ease, color var(--medio) ease,
+    border-color var(--medio) ease;
+}
+
+.boton--texto:active,
+.filtro:active,
+.selector-zona__boton:active {
+  transform: scale(0.97);
+}
+
+/* ========================================
+   Menos movimiento
+   Se va el desplazamiento; se quedan los fundidos
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+  .resumen__cuerpo,
+  .resumen__cuerpo[data-movimiento="entra"],
+  .resumen__cuerpo[data-movimiento="sale"] {
+    transform: none;
+  }
+
+  .butaca::after,
+  .butaca--elegida::after {
+    transform: none;
+  }
+
+  .butaca:hover,
+  .butaca:active,
+  .butaca--elegida,
+  .boton:active,
+  .boton--texto:active,
+  .filtro:active,
+  .selector-zona__boton:active {
+    transform: none;
+  }
+
+  @keyframes cifra {
+    from {
+      opacity: 0;
+      transform: none;
+    }
+  }
+
+  @keyframes paso {
+    from {
+      opacity: 0;
+      transform: none;
+    }
+  }
+
+  @keyframes emitida {
+    from {
+      opacity: 0;
+      transform: none;
+    }
+  }
+
+  @keyframes sello {
+    from {
+      opacity: 0;
+      transform: none;
+    }
+  }
+
+  @keyframes aparece {
+    from {
+      opacity: 0;
+      transform: none;
+    }
+  }
+}
