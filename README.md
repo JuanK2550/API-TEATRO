@@ -144,6 +144,7 @@ Hay tres clientes registrados en `src/data/apiKeys.js`:
 | 1 | Postman Laboratorio | `API_KEY_POSTMAN` | Activa |
 | 2 | Taquilla del Teatro | `API_KEY_TAQUILLA` | Activa |
 | 3 | Aplicación Móvil | `API_KEY_MOVIL` | Deshabilitada |
+| 4 | Aplicación Web | `API_KEY_WEB` | Activa |
 
 Las claves **no se guardan en claro**. Al arrancar, el servidor calcula el hash
 SHA-256 de cada una y solo conserva ese hash. En cada petición calcula el hash
@@ -280,6 +281,287 @@ usado desde dos aplicaciones distintas devuelve el mismo `usuario` y distinto
 | Token caducado | 401 | Token expirado |
 | Firma incorrecta, payload alterado o `alg: none` | 401 | Token inválido |
 
+## Frontend · La Sala
+
+`frontend/` es la cara pública de la API: la taquilla que ve el espectador.
+La sirve el mismo Express, así que no hay un segundo servidor ni un segundo
+despliegue.
+
+### Cómo arrancarla
+
+No tiene arranque propio. Con el `.env` configurado:
+
+```bash
+npm start          # o npm run dev
+```
+
+y se abre <http://localhost:3000/sala>. `GET /` sigue devolviendo
+`{"mensaje":"API Teatro funcionando"}`: la Sala vive en `/sala` justamente para
+no ocupar la raíz de la API.
+
+HTML, CSS y JavaScript con módulos ES, **sin framework y sin paso de
+compilación**: no añade ninguna dependencia al proyecto ni ningún artefacto que
+construir. Lo que está en `frontend/` es exactamente lo que llega al navegador.
+
+### Las vistas
+
+Una sola página con un enrutador por `hash`. Es deliberado: si cada pantalla
+fuera un HTML aparte, cada salto recargaría el documento y borraría el token.
+
+| Ruta | Qué es |
+| ---- | ------ |
+| `#/` | Cartelera: la próxima función en venta ocupa el primer viewport, debajo el programa por jornadas con filtros por tipo |
+| `#/evento/:id` | Ficha del evento y todas sus funciones con su estado |
+| `#/funcion/:id` | Cuadro de tarifas por cercanía al escenario y descuentos habilitados |
+| `#/funcion/:id/butacas` | Plano de la sala, elección de butaca y compra |
+| `#/boleta/:id` | El talón emitido, con el pago simulado |
+| `#/mis-boletas` | Las boletas de la cuenta, con cancelar |
+| `#/entrar` | Entrar, crear cuenta y, con sesión abierta, el perfil |
+
+### Dirección de diseño
+
+El teatro, no un panel de administración. Fondo granate de telón, oro y luz
+cálida de escenario; un telón que se abre al entrar; las butacas dibujadas a
+escala real de la sala (100 + 200 + 150); la boleta como un talón troquelado con
+su colilla.
+
+Tres tipografías con un trabajo cada una: **Archivo Black** para los carteles,
+**Libre Franklin** para leer y **Courier Prime** para los datos (horas, precios,
+códigos), que así quedan alineados en columna.
+
+Las tres tipografías y las cinco fotografías están descargadas dentro de
+`frontend/`, con su licencia OFL y los créditos en
+[`frontend/CREDITOS-IMAGENES.md`](frontend/CREDITOS-IMAGENES.md). **No se pide
+nada a ningún CDN**, que es lo que permite darle a la Sala una política de
+contenido más estricta que la del resto del servidor.
+
+El color nunca va solo: cada estado lleva su palabra, y en el plano la butaca
+ocupada además cambia de forma.
+
+### La clave web no es secreta, y está bien que no lo sea
+
+`GET /sala/config.js` la genera el
+servidor en cada petición leyendo `API_KEY_WEB` del `.env`. Así la clave no está
+escrita en ningún archivo del repositorio.
+
+Eso no la vuelve secreta: cualquiera que abra las herramientas del navegador la
+ve, porque el navegador tiene que mandarla en cada petición. En una aplicación
+web la API Key **identifica a la aplicación, no la protege**. Lo que protege es
+el JWT, que identifica a la persona; el límite de peticiones, que frena el abuso;
+y poder revocar ese cliente poniendo `activa: false` en `src/data/apiKeys.js` sin
+afectar a los demás. Para que la clave no llegara al navegador habría que meter
+un proxy en el servidor, y eso queda fuera del alcance del laboratorio.
+
+### La sesión vive en memoria
+
+La sesión del usuario vive **solo en memoria**: el JWT no se guarda en
+`localStorage` ni en `sessionStorage`, así que recargar la página cierra la
+sesión. Es deliberado: lo que se guarda en el navegador sobrevive a la pestaña y
+queda expuesto a cualquier script de la página.
+
+Cuando esto pasa, la Sala lo dice en lugar de dejar al usuario a oscuras: si
+hubo sesión en la pestaña, tras recargar aparece el aviso *"Por seguridad, la
+sesión no se guarda al recargar la página. Vuelve a entrar."*, con un botón que
+lleva a entrar y devuelve a la pantalla donde estaba.
+
+#### Lo único que la Sala guarda en el navegador
+
+Dos marcas, las dos en **`sessionStorage`**, que es el almacenamiento que muere
+al cerrar la pestaña. Ninguna de las dos guarda un dato de la persona:
+
+| Clave | Valor | Para qué |
+| ----- | ----- | -------- |
+| `telon-abierto` | `"si"` | Que el telón se abra una sola vez por sesión y no en cada vista |
+| `hubo-sesion` | `"si"` | Saber, tras una recarga, que hay que explicar por qué se cerró la sesión |
+
+Son un sí o nada: no hay token, ni correo, ni documento, ni id. Se comprobó en
+el navegador que, con una sesión abierta y una compra hecha, el almacenamiento
+queda así:
+
+```
+sessionStorage  {"telon-abierto":"si","hubo-sesion":"si"}
+localStorage    {}
+cookies         (ninguna)
+IndexedDB       (ninguna base)
+```
+
+Las dos lecturas y las dos escrituras van dentro de `try/catch`: en modo
+privado el almacenamiento puede fallar y la Sala tiene que seguir funcionando.
+Al cerrar sesión, `hubo-sesion` se borra.
+
+### La compra y la minimización de datos
+
+El plano de butacas necesita saber qué asientos están tomados, y nada más. Por
+eso se añadió `GET /api/funciones/:id/ocupacion`, que devuelve solo
+`[{ localidadId, fila, numero }]` de las boletas no canceladas.
+
+La alternativa era `GET /api/boletas/funcion/:id`, que ya existía, pero devuelve
+las boletas completas: el `codigo` y el `asistenteId` de cada comprador
+quedarían a la vista de cualquiera que abriera las herramientas del navegador.
+Es **minimización de datos**: el endpoint entrega lo mínimo que el plano
+necesita para funcionar.
+
+### El asistente se liga a la cuenta
+
+Comprar exige haber entrado. Quién es la persona lo resuelve el servidor a
+partir del JWT, no un dato escrito en un formulario:
+
+| Endpoint | Qué hace |
+| -------- | -------- |
+| `GET /api/asistentes/mio` | Devuelve los datos de asistente de la cuenta del token, o 404 si todavía no tiene |
+| `POST /api/asistentes/mio` | Los crea y los liga a esa cuenta. Solo hace falta la primera vez |
+| `GET /api/boletas/mias` | Las boletas de esa cuenta, sin ningún id en la dirección |
+
+El campo `usuarioId` **lo pone el servidor desde el token**: no está declarado
+en ningún validador, así que `matchedData` lo descarta aunque el cliente lo
+mande. Hay una prueba que lo comprueba enviando `usuarioId: 9999`.
+
+Esto resuelve el problema que tenía la versión anterior. Antes, la Sala hacía
+`POST /api/asistentes` con el documento escrito a mano: quien ya había comprado
+recibía un 409 y se quedaba **sin poder comprar**, porque la única salida
+habría sido descargar la lista de asistentes —que expondría documentos, correos
+y teléfonos de todo el mundo— o preguntar *"¿existe el documento X?"*, que es un
+oráculo para enumerar documentos. Con el vínculo a la cuenta no hay que
+preguntar nada: la segunda compra no pide ni el documento.
+
+Un documento sigue sin poder repetirse. Si alguien intenta reclamar uno que ya
+está registrado a otra persona, la respuesta es 409 y su cuenta se queda sin
+asistente.
+
+La primera vez que una cuenta entra al plano, `GET /api/asistentes/mio` responde
+**404 y eso es lo correcto**: el recurso todavía no existe. La Sala lo trata como
+"aún no hay datos" y muestra el formulario. El navegador, en cambio, apunta todo
+código distinto de 2xx en su consola, así que al abrir las herramientas se ve una
+línea `404 (Not Found)` que **no es un fallo**. Se mantiene el 404 en lugar de
+cambiarlo a 204 porque el 404 es el código que describe la situación y además
+lleva un mensaje explicativo; silenciar la consola a costa de un código menos
+preciso sería arreglar la herramienta, no el programa.
+
+El asistente resuelto se guarda **solo en memoria**, igual que el token.
+
+La ocupación **no se guarda en caché**: se pide al entrar al plano y otra vez
+cuando la API responde 409 porque la butaca se ocupó en el intervalo. El resto
+de las listas (cartelera, funciones, localidades y tarifas) sí se guardan
+mientras dure la sesión, para no gastar el límite de 100 peticiones cada 15
+minutos.
+
+Al confirmar, la Sala envía únicamente `asistenteId`, `funcionId`,
+`localidadId`, `fila`, `numero` y `tipoDescuento`. **Nunca manda `precio`,
+`codigo` ni `estado`**: los pone el servidor. El panel de resumen rotula su
+cifra como *"precio estimado"* precisamente porque el precio definitivo es el
+que devuelve la API, y es ese el que se imprime en el talón.
+
+El botón **"Pago simulado"** está rotulado como simulación y explicado en la
+propia pantalla: no hay pasarela de pago ni se envían datos a ningún banco, solo
+hace `PATCH /api/boletas/:id/estado` con `{ "estado": "pagada" }`.
+
+### Nada se escribe como HTML
+
+La Sala **no usa `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`
+ni `eval`** en ninguna parte: una búsqueda sobre `frontend/` no devuelve ni una
+coincidencia. Todo el texto que viene de la API —títulos, descripciones,
+nombres, mensajes de error— entra con `textContent` o `createTextNode`, que no
+interpretan marcado.
+
+Tampoco se construye ninguna dirección con datos de la API: los `href` son rutas
+internas con un id numérico y las fotografías salen de una lista fija por tipo de
+evento.
+
+Se comprobó con una carga real guardada en el evento 1, con caracteres que el
+validador sí acepta porque no llevan `<` ni `>`:
+
+```
+titulo:      Bernarda " onmouseover="alert(1)
+descripcion: &lt;img src=x onerror=alert(1)&gt; javascript:alert(2) ${alert(3)} ...
+```
+
+La API la guardó tal cual y la Sala la mostró **como texto**: cero nodos
+inyectados, cero enlaces `javascript:`, cero diálogos, cero errores de consola.
+El detalle está en
+[`docs/seguridad/sast-semgrep-frontend.txt`](docs/seguridad/sast-semgrep-frontend.txt).
+
+La defensa que cuenta no es el filtro de entrada que quita `<` y `>`, sino que
+la salida nunca se trata como HTML: aunque un día entrara una carga completa por
+otra vía, se vería como texto.
+
+### La Sala tiene su propia política de contenido
+
+El `helmet()` global deja `style-src 'self' https: 'unsafe-inline'`, que es su
+valor por defecto. **Swagger UI lo necesita**: se comprobó que `/api-docs`
+escribe 3 bloques `<style>` y 4 atributos `style`, así que quitarlo para todo el
+servidor rompería la documentación navegable.
+
+La Sala no escribe ninguno, así que `/sala` monta su propia
+`helmet.contentSecurityPolicy` antes de servir nada, y esa cabecera reemplaza a
+la global solo en esas peticiones:
+
+| Directiva | Resto del servidor | `/sala` |
+| --------- | ------------------ | ------- |
+| `style-src` | `'self' https: 'unsafe-inline'` | **`'self'`** |
+| `font-src` | `'self' https: data:` | **`'self'`** |
+| `img-src` | `'self' data:` | **`'self'`** |
+| `script-src` | `'self'` | `'self'` |
+| `script-src-attr` | `'none'` | `'none'` |
+
+Las tipografías y las fotografías están dentro del proyecto, así que `https:` y
+`data:` no hacían falta. Comprobado en el navegador: la Sala carga sus 2 hojas
+de estilo con 230 reglas, sus 4 tipografías y sus fotografías **sin una sola
+violación de CSP**, y `/api-docs` sigue pintando sus 46 operaciones.
+
+### El movimiento
+
+Siete animaciones, todas con un motivo: el telón que se abre una vez por
+sesión, la entrada escalonada de la cartelera, la butaca al pulsarla y el
+anillo de luz al elegirla, el panel de resumen, el paso siguiente de la compra,
+la boleta que entra desde abajo al emitirse y el sello que cambia de estado.
+
+Las reglas que siguen todas:
+
+- **Solo `transform` y `opacity`.** No se anima ninguna propiedad que obligue al
+  navegador a recalcular la disposición de la página.
+- **Las salidas duran dos tercios de las entradas** (`--entra: 240ms`,
+  `--sale: 150ms`): esperar a que algo se vaya se siente lento.
+- **El realce al pasar por encima vive dentro de `@media (hover: hover)`**, para
+  que en una pantalla táctil no se quede pegado después del toque.
+- **El teclado no anima nada**: el foco aparece de golpe.
+- **Al filtrar la cartelera no entra nada**: la lista ya estaba en pantalla y
+  verla aparecer con cada toque cansa. El escalonado es solo de la primera
+  pintada y se corta en el sexto elemento.
+- **La sección actual se marca** con `aria-current="page"` en la marquesina.
+- **Los formularios con varios campos llevan un resumen de errores** al
+  principio, con un enlace a cada campo que falla, que recibe el foco al enviar
+  y no reemplaza al error que va bajo cada campo.
+- **No se pide dos veces lo mismo**: el nombre y el correo de la cuenta vienen
+  puestos en el formulario del asistente.
+- **`prefers-reduced-motion: reduce` quita el desplazamiento y deja el
+  fundido.** Se comprobó en el navegador con la preferencia activada: el telón
+  pasa a un fundido, y la butaca, el anillo y el panel se quedan en
+  `transform: none` sin perder la transición de opacidad.
+
+Medido en el navegador: la Sala queda lista en **268 ms** con 63 kB y dos
+peticiones a la API; elegir una butaca cuesta **0,34 ms de media y 0,8 ms en el
+peor caso**, con los fotogramas en 16,5 ms de media, así que el plano de 450
+butacas no se traba; y pintar el plano entero toma unos **33 ms**.
+
+### Limitaciones de la Sala
+
+| Limitación | Qué significa |
+| ---------- | ------------- |
+| **IDOR en las rutas antiguas** | `GET /api/boletas/asistente/:id` y `PATCH /api/boletas/:id/estado` no comprueban de quién es la boleta. La Sala ya no las usa —pide `GET /api/boletas/mias`, que resuelve el asistente desde el token—, pero siguen publicadas para la taquilla y para las pruebas de los laboratorios anteriores. Se cierra en el laboratorio de autorización |
+| **El pago es simulado** | No hay pasarela ni cobro. El botón solo cambia el estado a `pagada`, y lo dice en pantalla |
+| **La sesión se pierde al recargar** | Es el precio de no guardar el token en el navegador. La Sala lo explica con un aviso y devuelve a la pantalla donde se estaba |
+| **La API Key viaja al navegador** | Identifica a la aplicación, no la protege. Evitarlo exigiría un proxy en el servidor |
+
+
+**Mejora futura: la cookie `httpOnly`.** Hoy el token vive en una variable de
+JavaScript. Lo correcto en producción sería que el servidor lo entregara en una
+cookie `httpOnly; Secure; SameSite=Strict`, que el navegador manda sola y que
+**ningún script de la página puede leer**, ni siquiera uno inyectado. Eso
+cerraría del todo el robo de token por XSS y además sobreviviría a la recarga,
+que es la molestia que hoy tiene la Sala. Exige HTTPS y añadir protección
+anti-CSRF, porque una cookie se envía también en peticiones de otros sitios; por
+eso queda fuera del alcance de esta entrega.
+
 ## Instalación y ejecución
 
 Requisitos: Node.js 18 o superior (probado en 24.15.0) y npm.
@@ -301,6 +583,7 @@ Los comandos se ejecutan desde la raíz del proyecto. El servidor queda en
 | `RATE_LIMIT_MAX` | `100` | Peticiones por ventana de 15 min |
 | `API_KEY_POSTMAN` | sin valor | Clave del cliente Postman Laboratorio |
 | `API_KEY_TAQUILLA` | sin valor | Clave del cliente Taquilla del Teatro |
+| `API_KEY_WEB` | sin valor | Clave del cliente Aplicación Web (el frontend) |
 | `API_KEY_MOVIL` | sin valor | Clave del cliente Aplicación Móvil (deshabilitado) |
 | `JWT_SECRET` | sin valor | Clave con la que se firman y verifican los JWT |
 | `JWT_EXPIRES_IN` | `1h` | Cuánto dura un token |
@@ -337,11 +620,33 @@ API_TEATRO/
 ├── package.json
 ├── docs/entregas/                # informes de entrega en PDF
 ├── docs/seguridad/               # salidas de las herramientas e informes por laboratorio
+├── frontend/                     # la Sala, servida en /sala
+│   ├── index.html
+│   ├── favicon.svg
+│   ├── CREDITOS-IMAGENES.md
+│   ├── css/
+│   │   ├── tokens.css            # tipografías, color, ritmo y curvas
+│   │   └── sala.css
+│   ├── fuentes/                  # woff2 locales con su licencia OFL
+│   ├── imagenes/                 # fotografías en WebP, dos anchos cada una
+│   └── js/
+│       ├── api.js                # cliente de la API y sesión en memoria
+│       ├── formato.js            # piezas compartidas por las vistas
+│       ├── sala.js               # enrutado por hash
+│       └── vistas/
+│           ├── cartelera.js
+│           ├── evento.js
+│           ├── funcion.js
+│           ├── butacas.js        # plano de sala y compra
+│           ├── boleta.js         # talón emitido y pago simulado
+│           ├── misboletas.js
+│           └── entrar.js
 ├── pruebas/                      # scripts de prueba contra el servidor
 │   ├── pruebas.js
 │   ├── pruebas-funciones.js
 │   ├── pruebas-boletas.js
 │   ├── pruebas-limites.js
+│   ├── pruebas-cuenta.js
 │   ├── verificar-a.js
 │   ├── verificar-b.js
 │   └── verificar-c.js
@@ -402,7 +707,7 @@ no acceden a los datos; solo los services importan desde `src/data/`.
 
 ## Endpoints
 
-42 endpoints en 22 rutas. Swagger UI: <http://localhost:3000/api-docs> ·
+46 endpoints en 25 rutas. Swagger UI: <http://localhost:3000/api-docs> ·
 OpenAPI: <http://localhost:3000/openapi.json>
 
 **Generales**
@@ -418,6 +723,8 @@ OpenAPI: <http://localhost:3000/openapi.json>
 | Método | Ruta | Descripción |
 | ------ | ---- | ----------- |
 | GET | `/api/asistentes` | Lista los asistentes |
+| GET | `/api/asistentes/mio` | Datos de asistente de la cuenta del token |
+| POST | `/api/asistentes/mio` | Los crea y los liga a esa cuenta |
 | GET | `/api/asistentes/:id` | Obtiene un asistente |
 | POST | `/api/asistentes` | Crea un asistente |
 | PUT | `/api/asistentes/:id` | Reemplaza un asistente |
@@ -456,6 +763,7 @@ OpenAPI: <http://localhost:3000/openapi.json>
 | GET | `/api/funciones/evento/:eventoId` | Funciones de un evento |
 | GET | `/api/funciones/:id` | Obtiene una función |
 | GET | `/api/funciones/:id/tarifas` | Tarifas ordenadas por cercanía y descuentos habilitados |
+| GET | `/api/funciones/:id/ocupacion` | Butacas tomadas, solo `localidadId`, `fila` y `numero` |
 | POST | `/api/funciones` | Crea una función en estado `programada` |
 | PUT | `/api/funciones/:id` | Reemplaza una función, conserva el estado |
 | PATCH | `/api/funciones/:id` | Actualiza parcialmente una función |
@@ -467,6 +775,7 @@ OpenAPI: <http://localhost:3000/openapi.json>
 | Método | Ruta | Descripción |
 | ------ | ---- | ----------- |
 | GET | `/api/boletas` | Lista las boletas |
+| GET | `/api/boletas/mias` | Boletas de la cuenta del token |
 | GET | `/api/boletas/asistente/:asistenteId` | Boletas de un asistente |
 | GET | `/api/boletas/funcion/:funcionId` | Boletas de una función |
 | GET | `/api/boletas/:id` | Obtiene una boleta |
@@ -504,6 +813,7 @@ cada bloque:
 | [`informe-lab7.md`](docs/seguridad/informe-lab7.md) | Usuarios, hashing y salting con bcrypt |
 | [`informe-lab8.md`](docs/seguridad/informe-lab8.md) | Control del rol y escalada de privilegios |
 | [`informe-lab9.md`](docs/seguridad/informe-lab9.md) | Autenticación con JWT |
+| [`informe-frontend.md`](docs/seguridad/informe-frontend.md) | La Sala: XSS, minimización de datos y sesión en memoria |
 
 | Técnica | Herramienta | Alcance | Resultado |
 | ------- | ----------- | ------- | --------- |
@@ -511,6 +821,9 @@ cada bloque:
 | SAST | Semgrep 1.172.0 | 73 reglas, 43 archivos | 0 hallazgos |
 | SAST manual | Revisión de código | `src/` completo | 2 hallazgos, corregidos |
 | DAST | OWASP ZAP 2.17.0 | 39 URLs, Active Scan sobre `/api` | 2 alertas, ambas falsos positivos |
+| SCA, cierre del frontend | `npm audit --omit=dev` | lo que se despliega | 0 vulnerabilidades |
+| SAST, cierre del frontend | Semgrep con `p/javascript`, `p/nodejs`, `p/owasp-top-ten` y `p/xss` | 74 reglas, 61 archivos de `src/` y `frontend/` | 0 hallazgos |
+| XSS manual | Carga guardada en un evento desde la API | Cartelera y ficha del evento | Se muestra como texto; 0 nodos inyectados |
 
 **SCA.** Sin vulnerabilidades. `npm audit fix` no modificó el
 `package-lock.json`. Aviso de obsolescencia, sin vulnerabilidad asociada, en
@@ -541,11 +854,12 @@ devuelve JSON.
 | Suite | Comprobaciones |
 | ----- | -------------- |
 | Asistentes, eventos y localidades | 57 |
-| Funciones | 52 |
+| Funciones, incluida la ocupación del plano | 58 |
 | Boletas | 55 |
 | Límites de venta y regresión | 22 |
+| Asistente ligado a la cuenta | 18 |
 | Checklist de seguridad (35 casos) | 38 |
-| **Total** | **224, 0 fallos** |
+| **Total** | **248, 0 fallos** |
 
 ## Pruebas
 
@@ -556,9 +870,10 @@ librería de test: son scripts de Node con `fetch`.
 | Script | Qué cubre | Comprobaciones |
 | ------ | --------- | -------------- |
 | `pruebas.js` | CRUD de asistentes, eventos y localidades: validaciones, unicidad, estados y campos calculados | 57 |
-| `pruebas-funciones.js` | Funciones: las ocho reglas de negocio, el cuadro de tarifas y la máquina de estados | 52 |
+| `pruebas-funciones.js` | Funciones: las ocho reglas de negocio, el cuadro de tarifas, la ocupación y la máquina de estados | 58 |
 | `pruebas-boletas.js` | Boletas: precio y código calculados por el servidor, butaca única, descuentos y estados | 55 |
 | `pruebas-limites.js` | Aforo, límite de 6 boletas por asistente y borrado protegido de funciones | 22 |
+| `pruebas-cuenta.js` | Asistente ligado a la cuenta: token obligatorio, aislamiento entre cuentas y Mass Assignment de `usuarioId` | 18 |
 | `verificar-a.js` | Casos 1 a 16 del checklist: validación de entrada y Mass Assignment | 16 |
 | `verificar-b.js` | Casos 17 a 31: reglas de negocio e integridad | 16 |
 | `verificar-c.js` | Casos 32 a 35: cuerpo grande, límite de peticiones, cabeceras y error interno sin stack | 6 |
@@ -609,6 +924,27 @@ necesita el valor normal.
 - Si a un usuario le cambian el rol, su token viejo sigue diciendo el rol
   anterior hasta que expire, porque el rol se copió dentro del token al
   emitirlo.
+- La API Key del frontend viaja al navegador y es visible para quien lo inspeccione.
+  Identifica a la aplicación, no la protege; sin un proxy en el servidor no hay
+  forma de evitarlo en una aplicación web.
+- **`GET /api/boletas/asistente/:id` sigue sin mirar quién pregunta (IDOR).**
+  Cualquiera que cambie el id ve las boletas de otra persona. La Sala ya no la
+  usa —desde la Fase 3 pide `GET /api/boletas/mias`, que resuelve el asistente
+  desde el token y no admite ningún id—, pero la ruta vieja sigue publicada para
+  la taquilla y para las pruebas de los laboratorios anteriores. Protegerla
+  exige decidir qué roles pueden consultar boletas ajenas.
+- **El pago simulado y la cancelación no comprueban el dueño.**
+  `PATCH /api/boletas/:id/estado` lo puede llamar cualquier cliente con una API
+  Key válida, sobre la boleta de cualquiera.
+- Las dos limitaciones anteriores se cierran igual: exigir JWT en esos endpoints
+  y comprobar que el asistente de la boleta pertenece al `sub` del token, salvo
+  para los roles `taquilla` y `administrador`. El vínculo `usuarioId` que se
+  añadió a los asistentes es justamente lo que hace falta para comprobarlo.
+- Un asistente solo se puede ligar a una cuenta desde la propia cuenta. Los
+  asistentes que registró la taquilla (`usuarioId: null`, como los de la
+  semilla) no se pueden reclamar después: haría falta un proceso de la taquilla
+  para asociarlos, porque dejar que cualquiera reclame un documento ajeno sería
+  justo el agujero que se quería evitar.
 - Sin HTTPS: `Strict-Transport-Security` solo tiene efecto sobre TLS.
 - Concurrencia: Node procesa las peticiones en un solo hilo y las operaciones
   sobre los arrays son síncronas. Con una base de datos haría falta una
