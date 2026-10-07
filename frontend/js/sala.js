@@ -169,6 +169,15 @@ const pintar = async () => {
   marcarSeccion();
   explicarLaRecarga();
 
+  // La vista nueva entra con un fundido y un leve desplazamiento, para que el
+  // salto entre pantallas no sea seco.
+  vista.dataset.movimiento = "entra";
+  vista.addEventListener(
+    "animationend",
+    () => delete vista.dataset.movimiento,
+    { once: true }
+  );
+
   // Tras cambiar de vista, el foco vuelve al contenido para quien navega con
   // teclado o lector de pantalla.
   vista.focus({ preventScroll: true });
