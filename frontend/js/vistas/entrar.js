@@ -1,13 +1,16 @@
 // ========================================
-// Entrar y crear cuenta
-// El rol lo pone el servidor: el formulario no lo menciona
+// Bienvenido a la Sala
+// Pantalla partida: la foto a un lado, el formulario al otro
 // ========================================
+// El rol lo pone el servidor: el formulario no lo menciona.
 import * as api from "../api.js";
 import {
   aviso,
   cargando,
   elemento,
   enlaceBoton,
+  figura,
+  FOTOS_DEL_TEATRO,
   icono,
   resumenDeErrores
 } from "../formato.js";
@@ -139,31 +142,113 @@ const pintarPerfil = async (caja) => {
     );
   } catch (error) {
     cargador.remove();
-    caja.appendChild(
-      aviso("No se pudo leer tu perfil", `${error.message}.`)
-    );
+    caja.appendChild(aviso("No se pudo leer tu perfil", `${error.message}.`));
   }
 };
 
-export const render = (vista, parametros, contexto) => {
-  const pliego = elemento("section", "pliego pliego--angosto");
-  pliego.setAttribute("aria-labelledby", "titulo-entrar");
+// ========================================
+// Pestañas
+// Una sola a la vista; la que entra se funde
+// ========================================
+const pestanas = (paneles) => {
+  const tiras = elemento("div", "pestanas");
+  tiras.setAttribute("role", "tablist");
+  tiras.setAttribute("aria-label", "Entrar o crear cuenta");
 
-  const titulo = elemento("h2", "pliego__titulo", "Entrar a la taquilla");
+  const botones = paneles.map(({ id, titulo }, i) => {
+    const b = elemento("button", "pestana", titulo);
+    b.type = "button";
+    b.id = `pestana-${id}`;
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-controls", `panel-${id}`);
+    b.setAttribute("aria-selected", String(i === 0));
+    b.tabIndex = i === 0 ? 0 : -1;
+    tiras.appendChild(b);
+    return b;
+  });
+
+  const mostrar = (indice, moverFoco = true) => {
+    paneles.forEach(({ panel }, i) => {
+      const activo = i === indice;
+      botones[i].setAttribute("aria-selected", String(activo));
+      botones[i].tabIndex = activo ? 0 : -1;
+      panel.hidden = !activo;
+      if (activo) {
+        panel.dataset.movimiento = "entra";
+        panel.addEventListener(
+          "animationend",
+          () => delete panel.dataset.movimiento,
+          { once: true }
+        );
+      }
+    });
+    if (moverFoco) botones[indice].focus();
+  };
+
+  botones.forEach((b, i) => {
+    b.addEventListener("click", () => mostrar(i, false));
+    // Flechas entre pestañas, que es como se espera que funcionen.
+    b.addEventListener("keydown", (e) => {
+      const salto = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (!salto) return;
+      e.preventDefault();
+      mostrar((i + salto + botones.length) % botones.length);
+    });
+  });
+
+  paneles.forEach(({ id, panel }, i) => {
+    panel.id = `panel-${id}`;
+    panel.setAttribute("role", "tabpanel");
+    panel.setAttribute("aria-labelledby", `pestana-${id}`);
+    panel.tabIndex = 0;
+    panel.hidden = i !== 0;
+  });
+
+  return tiras;
+};
+
+// ========================================
+// Vista
+// ========================================
+export const render = (vista, parametros, contexto) => {
+  const escena = elemento("section", "bienvenida");
+
+  // ---------- Lado de la fotografía ----------
+  const lado = elemento("div", "bienvenida__foto");
+  lado.appendChild(figura(FOTOS_DEL_TEATRO[0], { viva: true, ancho: "(max-width: 60rem) 100vw, 50vw" }));
+  lado.appendChild(elemento("div", "bienvenida__velo"));
+
+  const frase = elemento("div", "bienvenida__frase");
+  frase.appendChild(elemento("p", "pliego__rotulo", "Teatro Maldonado de Tunja"));
+  frase.appendChild(
+    elemento("p", "bienvenida__lema", "La función empieza cuando eliges tu butaca.")
+  );
+  lado.appendChild(frase);
+  escena.appendChild(lado);
+
+  // ---------- Lado del formulario ----------
+  const tarjeta = elemento("div", "bienvenida__tarjeta");
+  tarjeta.setAttribute("aria-labelledby", "titulo-entrar");
+
+  const titulo = elemento("h2", "bienvenida__titulo", "Bienvenido a la Sala");
   titulo.id = "titulo-entrar";
-  pliego.appendChild(titulo);
+  tarjeta.appendChild(titulo);
 
   if (contexto && contexto.aviso) {
     const nota = elemento("p", "resumen-error", contexto.aviso);
     nota.setAttribute("role", "alert");
-    pliego.appendChild(nota);
+    tarjeta.appendChild(nota);
   }
 
   const usuario = api.usuarioActual();
   if (usuario) {
     titulo.textContent = "Tu sesión";
+    tarjeta.appendChild(
+      elemento("p", "bienvenida__entrada", `Entraste como ${usuario.nombre}.`)
+    );
+
     const caja = elemento("div");
-    pliego.appendChild(caja);
+    tarjeta.appendChild(caja);
     pintarPerfil(caja);
 
     const acciones = elemento("div", "acciones");
@@ -183,12 +268,22 @@ export const render = (vista, parametros, contexto) => {
     });
     acciones.appendChild(salir);
 
-    pliego.appendChild(acciones);
-    vista.appendChild(pliego);
+    tarjeta.appendChild(acciones);
+    escena.appendChild(tarjeta);
+    vista.appendChild(escena);
     return;
   }
 
-  // ---------- Entrar ----------
+  tarjeta.appendChild(
+    elemento(
+      "p",
+      "bienvenida__entrada",
+      "Entra para comprar: la boleta va a nombre de tu cuenta y no tendrás que escribir tus datos otra vez."
+    )
+  );
+
+  // ---------- Panel: entrar ----------
+  const panelEntrar = elemento("div", "panel");
   const formEntrar = elemento("form", "formulario");
   formEntrar.noValidate = true;
   formEntrar.appendChild(
@@ -206,22 +301,20 @@ export const render = (vista, parametros, contexto) => {
   botonEntrar.type = "submit";
   botonEntrar.appendChild(icono("flecha"));
   formEntrar.appendChild(botonEntrar);
-  pliego.appendChild(formEntrar);
+  panelEntrar.appendChild(formEntrar);
 
   conEnvio(formEntrar, botonEntrar, async (datos) => {
     await api.entrar(datos.email, datos.password);
-    const destino = (contexto && contexto.volverA) || "#/";
-    location.hash = destino;
+    location.hash = (contexto && contexto.volverA) || "#/";
   });
 
-  // ---------- Crear cuenta ----------
-  const separador = elemento("h3", "pliego__rotulo", "¿Primera vez?");
-  pliego.appendChild(separador);
-  pliego.appendChild(
+  // ---------- Panel: crear cuenta ----------
+  const panelCrear = elemento("div", "panel");
+  panelCrear.appendChild(
     elemento(
       "p",
       "pliego__nota",
-      "Crea tu cuenta para comprar boletas. El teatro asigna el rol: toda cuenta nueva entra como asistente."
+      "El teatro asigna el rol: toda cuenta nueva entra como asistente."
     )
   );
 
@@ -247,7 +340,7 @@ export const render = (vista, parametros, contexto) => {
   botonCrear.type = "submit";
   botonCrear.appendChild(icono("flecha"));
   formCrear.appendChild(botonCrear);
-  pliego.appendChild(formCrear);
+  panelCrear.appendChild(formCrear);
 
   conEnvio(formCrear, botonCrear, async (datos) => {
     await api.registrar({
@@ -257,9 +350,18 @@ export const render = (vista, parametros, contexto) => {
     });
     // Registrarse no es entrar: la API no devuelve token en el registro.
     await api.entrar(datos.email, datos.password);
-    const destino = (contexto && contexto.volverA) || "#/";
-    location.hash = destino;
+    location.hash = (contexto && contexto.volverA) || "#/";
   });
 
-  vista.appendChild(pliego);
+  tarjeta.appendChild(
+    pestanas([
+      { id: "entrar", titulo: "Entrar", panel: panelEntrar },
+      { id: "crear", titulo: "Crear cuenta", panel: panelCrear }
+    ])
+  );
+  tarjeta.appendChild(panelEntrar);
+  tarjeta.appendChild(panelCrear);
+
+  escena.appendChild(tarjeta);
+  vista.appendChild(escena);
 };
