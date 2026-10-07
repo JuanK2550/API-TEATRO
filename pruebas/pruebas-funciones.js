@@ -79,7 +79,7 @@ const principal = async () => {
   grupo("Consultas");
 
   await comprobar("Lista todas", "GET", "/api/funciones", undefined, 200, (d) =>
-    Array.isArray(d) && d.length === 7 ? null : "no devolvió las 7 funciones"
+    Array.isArray(d) && d.length === 16 ? null : "no devolvió las 16 funciones"
   );
   await comprobar("Obtiene por id", "GET", "/api/funciones/1", undefined, 200, (d) =>
     d.id === 1 && d.estado === "en_venta" ? null : "función inesperada"

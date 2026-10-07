@@ -285,7 +285,7 @@ const principal = async () => {
   grupo("Eventos");
 
   await comprobar("Lista todos", "GET", "/api/eventos", undefined, 200, (d) =>
-    Array.isArray(d) && d.length === 5 ? null : "no devolvió los 5 eventos"
+    Array.isArray(d) && d.length === 11 ? null : "no devolvió los 11 eventos"
   );
   await comprobar("Obtiene por id", "GET", "/api/eventos/1", undefined, 200, (d) =>
     d.id === 1 ? null : "id inesperado"
