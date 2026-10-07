@@ -13,17 +13,17 @@ import {
   elemento,
   enlaceBoton,
   esFutura,
-  FOTO_POR_TIPO,
+  fotoDeEvento,
   icono,
   pesos,
   precioDesde
 } from "../formato.js";
 
 const portada = (evento) => {
-  const foto = FOTO_POR_TIPO[evento.tipo] || FOTO_POR_TIPO.obra;
+  const foto = fotoDeEvento(evento);
 
   const seccion = elemento("section", "portada");
-  const figura = elemento("figure", "duotono");
+  const figura = elemento("figure", "foto foto--viva");
   const img = elemento("img");
   img.src = `imagenes/${foto.archivo}.webp`;
   img.srcset = `imagenes/${foto.archivo}-900.webp 900w, imagenes/${foto.archivo}.webp 1800w`;

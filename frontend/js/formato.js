@@ -59,24 +59,75 @@ export const esFutura = (funcion) =>
 export const precioDesde = (funcion) =>
   funcion.tarifas.reduce((menor, t) => Math.min(menor, t.precio), Infinity);
 
-// Cada tipo de evento entra con su propia fotografía del teatro.
+// Cada evento de la programación tiene su propia fotografía, para que la
+// cartelera no repita la misma imagen tres veces. La clave es el id del evento,
+// que es lo que la API garantiza estable.
+const FOTO_POR_EVENTO = {
+  1: { archivo: "afiche-obra", alt: "Tres actores en silueta sobre un telón rojo iluminado" },
+  2: { archivo: "afiche-concierto", alt: "Violinistas de una orquesta tocando durante un concierto" },
+  3: { archivo: "afiche-cine", alt: "Proyector de cine encendido en una sala a oscuras" },
+  4: { archivo: "afiche-institucional", alt: "Público asistiendo a un acto en un auditorio" },
+  5: { archivo: "afiche-musica-joven", alt: "Músico en el escenario entre luces y humo" },
+  6: { archivo: "afiche-ballet", alt: "Bailarina en movimiento con falda larga sobre fondo oscuro" },
+  7: { archivo: "afiche-jazz", alt: "Saxofones de una big band iluminados en el escenario" },
+  8: { archivo: "afiche-infantil", alt: "Mesa con colores y materiales de un taller infantil" },
+  9: { archivo: "afiche-cine-mudo", alt: "Claqueta de cine sostenida a contraluz" },
+  10: { archivo: "afiche-musica-joven", alt: "Músico en el escenario entre luces y humo" },
+  11: { archivo: "afiche-foro", alt: "Micrófono en primer plano frente a un público reunido" }
+};
+
+// Si un evento nuevo todavía no tiene foto propia, cae en la de su tipo.
+export const fotoDeEvento = (evento) =>
+  FOTO_POR_EVENTO[evento.id] || FOTO_POR_TIPO[evento.tipo] || FOTO_POR_TIPO.obra;
+
+// Cada tipo de evento tiene su afiche: una fotografía que se reconoce de un
+// vistazo, a todo color.
 export const FOTO_POR_TIPO = {
   obra: {
-    archivo: "telon-rojo",
-    alt: "Telón rojo de terciopelo iluminado desde el escenario"
+    archivo: "afiche-obra",
+    alt: "Tres actores en silueta sobre un telón rojo iluminado"
   },
   concierto: {
-    archivo: "escenario-luces",
-    alt: "Escenario vacío con los focos encendidos"
+    archivo: "afiche-concierto",
+    alt: "Violinistas de una orquesta tocando durante un concierto"
   },
   cine: {
-    archivo: "butacas-vacias",
-    alt: "Filas de butacas de terciopelo rojo en penumbra"
+    archivo: "afiche-cine",
+    alt: "Proyector de cine encendido en una sala a oscuras"
   },
   institucional: {
-    archivo: "publico-sala",
-    alt: "Público sentado en la sala durante una función"
+    archivo: "afiche-institucional",
+    alt: "Público asistiendo a un acto en un auditorio"
   }
+};
+
+// Las fotografías de la sala, para la portada y la franja.
+export const FOTOS_DEL_TEATRO = [
+  { archivo: "sala-roja", alt: "Sala del teatro con sus butacas rojas y el telón al fondo" },
+  { archivo: "escenario-azul", alt: "Escenario iluminado por focos azules durante una función" },
+  { archivo: "teatro-lleno", alt: "Teatro lleno visto desde el patio de butacas" },
+  { archivo: "telon-rojo", alt: "Telón rojo de terciopelo iluminado desde el escenario" },
+  { archivo: "cine-penumbra", alt: "Sala de cine en penumbra con la escalera iluminada" },
+  { archivo: "publico-sala", alt: "Público sentado en la sala durante una función" }
+];
+
+// ========================================
+// Fotografía a todo color
+// El velo solo oscurece donde se apoya el texto
+// ========================================
+export const figura = (foto, { viva = false, ancho = "100vw" } = {}) => {
+  const fig = elemento("figure", viva ? "foto foto--viva" : "foto");
+  const img = elemento("img");
+  img.src = `imagenes/${foto.archivo}.webp`;
+  img.srcset = `imagenes/${foto.archivo}-900.webp 900w, imagenes/${foto.archivo}.webp 1800w`;
+  img.sizes = ancho;
+  img.width = 1800;
+  img.height = 1200;
+  img.alt = foto.alt;
+  img.loading = "lazy";
+  img.decoding = "async";
+  fig.appendChild(img);
+  return fig;
 };
 
 export const elemento = (etiqueta, clase, texto) => {
@@ -105,7 +156,7 @@ export const icono = (nombre) => {
   return svg;
 };
 
-// El color nunca va solo: cada estado lleva su palabra.
+// El color nunca va solo: cada estado lleva su palabra y su forma.
 export const chipEstado = (estado) =>
   elemento("span", `estado estado--${estado}`, PALABRA_ESTADO[estado] || estado);
 
@@ -114,6 +165,46 @@ export const enlaceBoton = (texto, destino, clase = "boton") => {
   enlace.href = destino;
   enlace.appendChild(icono("flecha"));
   return enlace;
+};
+
+// ========================================
+// Aparecer al llegar al scroll
+// Una sola vez por elemento
+// ========================================
+// Con movimiento reducido no se observa nada: los elementos se quedan visibles
+// desde el principio y no hay nada que esperar.
+export const revelarAlEntrar = (elementos) => {
+  const quieto = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const lista = [...elementos];
+
+  if (quieto || !("IntersectionObserver" in window)) {
+    lista.forEach((n) => n.classList.add("revelado"));
+    return;
+  }
+
+  const vigia = new IntersectionObserver(
+    (entradas) => {
+      entradas.forEach((entrada) => {
+        if (!entrada.isIntersecting) return;
+        entrada.target.classList.add("revelado");
+        vigia.unobserve(entrada.target);
+      });
+    },
+    { rootMargin: "0px 0px -12% 0px", threshold: 0.08 }
+  );
+
+  lista.forEach((n) => {
+    n.classList.add("por-revelar");
+    vigia.observe(n);
+  });
+
+  // Red de seguridad: pase lo que pase, a los 2,5 segundos todo está visible.
+  // Que una sección quede escondida porque un observador no disparó es un
+  // fallo mucho peor que perderse la animación.
+  setTimeout(() => {
+    lista.forEach((n) => n.classList.add("revelado"));
+    vigia.disconnect();
+  }, 2500);
 };
 
 // ========================================
