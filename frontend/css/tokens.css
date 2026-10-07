@@ -35,28 +35,46 @@
 }
 
 /* ========================================
-   Sala: el mundo del público
+   Sala a oscuras: el mundo del público
    ======================================== */
+/* El fondo es el negro de una sala con las luces apagadas, no un vino plano.
+   Sobre él, tres acentos con un trabajo cada uno: el rojo del telón para la
+   marca, el oro para lo que hay que pulsar y un azul de reflector para los
+   enlaces y lo que informa. Todas las parejas de texto pasan 4.5:1. */
 :root {
-  /* Telón */
-  --telon: #58101a;
-  --telon-hondo: #3d0a12;
-  --telon-borde: #731a26;
+  /* Sala */
+  --fondo: #0a0a0f;
+  --superficie: #15141c;
+  --superficie-alta: #1e1c28;
 
-  /* Luz */
-  --oro: #c8a24a;
-  --oro-tenue: #8d7334;
-  --luz: #ffd9a0;
+  /* Telón: marca, bordes y superficies, nunca texto claro encima */
+  --telon: #e02b41;
+  --telon-hondo: #8e1424;
+  --telon-borde: #6d1120;
+
+  /* Luz de escena */
+  --oro: #f5c45e;
+  --oro-tenue: #9a7a33;
+  --luz: #ffe3a3;
+
+  /* Reflector frío: enlaces, foco y datos */
+  --frio: #4cc9f0;
+  --frio-hondo: #1b6e8c;
 
   /* Papel */
-  --marfil: #f4ecdc;
-  --marfil-tenue: #d6c3ae;
+  --marfil: #f7f4ee;
+  --marfil-tenue: #ada7b8;
 
   /* Estados, siempre acompañados de su palabra */
-  --estado-venta: #8fd3a8;
-  --estado-espera: #e8bf72;
-  --estado-agotada: #e9a6a0;
-  --estado-cerrada: #b9a79c;
+  --estado-venta: #5bd99c;
+  --estado-espera: #f5c45e;
+  --estado-agotada: #ff7a85;
+  --estado-cerrada: #8c8698;
+
+  /* Localidades: cada una con su color en el plano y en la leyenda */
+  --loc-1: #f5c45e;
+  --loc-2: #4cc9f0;
+  --loc-3: #c77dff;
 
   /* Tipos */
   --cartel: "Archivo Black", serif;
@@ -82,10 +100,17 @@
   --e8: 5.5rem;
 
   /* Trazo */
-  --filete: 1px solid rgba(200, 162, 74, 0.38);
+  --filete: 1px solid rgba(245, 196, 94, 0.22);
   --filete-firme: 1px solid var(--oro);
-  --radio: 12px;
+  --filete-telon: 1px solid rgba(224, 43, 65, 0.55);
+  --radio: 14px;
+  --radio-grande: 22px;
   --radio-control: 999px;
+
+  /* Sombras: la luz cae desde el escenario */
+  --sombra-baja: 0 2px 14px rgba(0, 0, 0, 0.5);
+  --sombra-alta: 0 18px 46px rgba(0, 0, 0, 0.62);
+  --brillo-oro: 0 0 24px rgba(245, 196, 94, 0.42);
 
   /* Movimiento */
   --salida: cubic-bezier(0.23, 1, 0.32, 1);
