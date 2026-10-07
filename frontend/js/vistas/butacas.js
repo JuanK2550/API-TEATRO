@@ -409,8 +409,27 @@ export const render = async (vista, parametros) => {
       tomadasCrudas.map((b) => clave(b.localidadId, b.fila, b.numero))
     );
 
+    // Dónde estamos en la compra. Lo mueve avanzarPaso().
+    const PASOS = ["Butaca", "Datos", "Confirmar", "Boleta"];
+    const pasos = elemento("ol", "pasos");
+    pasos.setAttribute("aria-label", "Pasos de la compra");
+    PASOS.forEach((nombre, i) => {
+      const item = elemento("li", "paso", nombre);
+      item.dataset.estado = i === 0 ? "actual" : "pendiente";
+      pasos.appendChild(item);
+    });
+    pliego.appendChild(pasos);
+
+    const avanzarPaso = (indice) => {
+      [...pasos.children].forEach((item, i) => {
+        item.dataset.estado = i < indice ? "hecho" : i === indice ? "actual" : "pendiente";
+        if (i === indice) item.setAttribute("aria-current", "step");
+        else item.removeAttribute("aria-current");
+      });
+    };
+
     const sala = elemento("div", "sala");
-    sala.appendChild(elemento("p", "sala__escenario", "Escenario"));
+    const escenario = elemento("p", "sala__escenario", "Escenario");
 
     const leyenda = elemento("ul", "leyenda");
     [
@@ -427,6 +446,7 @@ export const render = async (vista, parametros) => {
     });
 
     const panel = panelResumen(cuadro, () => {
+      avanzarPaso(1);
       const paso = pliego.querySelector("#datos-asistente");
       const yaEstaba = !paso.hidden;
       paso.hidden = false;
@@ -466,6 +486,10 @@ export const render = async (vista, parametros) => {
       panel.pintar();
     };
 
+    // Una línea por localidad, con el color que tiene en el plano y su precio.
+    const leyendaZonas = elemento("ul", "leyenda-zonas");
+    leyendaZonas.setAttribute("aria-label", "Precio de cada localidad");
+
     const zonas = salas
       .filter((l) => l.activa && cuadro.tarifas.some((t) => t.localidadId === l.id))
       .sort((a, b) => a.orden - b.orden);
@@ -498,6 +522,15 @@ export const render = async (vista, parametros) => {
     zonas.forEach((localidad) => {
       const tarifa = cuadro.tarifas.find((t) => t.localidadId === localidad.id);
       sala.appendChild(dibujarLocalidad(localidad, tarifa, tomadas, alElegir));
+
+      const linea = elemento("li");
+      linea.dataset.localidad = localidad.id;
+      const muestra = elemento("span", "butaca");
+      muestra.setAttribute("aria-hidden", "true");
+      linea.appendChild(muestra);
+      linea.appendChild(document.createTextNode(localidad.nombre));
+      linea.appendChild(elemento("b", "", pesos.format(tarifa.precio)));
+      leyendaZonas.appendChild(linea);
     });
 
     // Las tres zonas caben juntas en una pantalla ancha; en una estrecha se ve
@@ -522,6 +555,7 @@ export const render = async (vista, parametros) => {
 
     const plano = elemento("div", "plano");
     plano.appendChild(selector);
+    plano.appendChild(escenario);
 
     const pista = elemento(
       "p",
@@ -532,6 +566,7 @@ export const render = async (vista, parametros) => {
     plano.appendChild(pista);
 
     plano.appendChild(sala);
+    plano.appendChild(leyendaZonas);
     plano.appendChild(leyenda);
 
     const columnas = elemento("div", "plano-y-resumen");
@@ -576,6 +611,7 @@ export const render = async (vista, parametros) => {
     // La usan los dos caminos: el formulario de la primera compra y el botón
     // de quien ya tiene datos ligados a su cuenta.
     const emitir = async (datos, caja, boton) => {
+      avanzarPaso(2);
       const textoOriginal = boton.firstChild.textContent;
       boton.disabled = true;
       boton.firstChild.textContent = "Emitiendo…";
@@ -650,6 +686,8 @@ export const render = async (vista, parametros) => {
       } finally {
         boton.disabled = false;
         boton.firstChild.textContent = textoOriginal;
+        // Si seguimos aquí es que no se emitió: el paso vuelve a los datos.
+        if (caja.isConnected) avanzarPaso(1);
       }
     };
 

@@ -70,10 +70,17 @@ const talon = (boleta, funcion, evento, localidad, movimiento) => {
     )
   );
   colilla.appendChild(elemento("p", "talon__precio", pesos.format(boleta.precio)));
-  const sello = chipEstado(boleta.estado);
-  if (movimiento === "estado") sello.dataset.movimiento = "cambia";
-  colilla.appendChild(sello);
+  const chip = chipEstado(boleta.estado);
+  if (movimiento === "estado") chip.dataset.movimiento = "cambia";
+  colilla.appendChild(chip);
   caja.appendChild(colilla);
+
+  // El sello cae sobre el talón cuando se acaba de pagar.
+  if (boleta.estado === "pagada" && movimiento === "estado") {
+    const sello = elemento("p", "sello-pagada", "PAGADA");
+    sello.setAttribute("aria-hidden", "true");
+    caja.appendChild(sello);
+  }
 
   return caja;
 };
