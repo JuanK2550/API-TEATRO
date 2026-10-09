@@ -15,6 +15,12 @@ const ROLES = ["administrador", "taquilla", "asistente"];
 const ROL_POR_DEFECTO = "asistente";
 
 // ========================================
+// Roles que un administrador puede otorgar
+// El rol asistente no está: ese se obtiene registrándose
+// ========================================
+const ROLES_ADMINISTRATIVOS = ["taquilla", "administrador"];
+
+// ========================================
 // Obtener usuario por email
 // El email es único, comparado siempre en minúsculas
 // ========================================
@@ -51,6 +57,43 @@ const crearUsuario = async (datos) => {
     // El cliente no puede fijar su rol ni activarse a sí mismo
     // ========================================
     rol: ROL_POR_DEFECTO,
+    activo: true
+  };
+
+  usuarios.push(nuevoUsuario);
+
+  return nuevoUsuario;
+};
+
+// ========================================
+// Crear usuario administrativo
+// El único camino por el que se otorga taquilla o administrador
+// ========================================
+// Va aparte de crearUsuario a propósito: ese sigue forzando el rol
+// asistente para el registro público, y aquí el rol llega del cuerpo
+// después de pasar la lista blanca del validador. Mezclar los dos
+// caminos en una función con el rol opcional convertiría un olvido en
+// una escalada de privilegios.
+//
+// El objeto se arma campo por campo, nunca con spread de datos: el id,
+// el hash y el activo son del servidor, y lo que no se nombra aquí no
+// llega a los datos aunque el validador lo dejara pasar.
+const crearUsuarioAdministrativo = async (datos) => {
+  const passwordHash = await generarPasswordHash(datos.password);
+
+  const nuevoUsuario = {
+    id:
+      usuarios.length > 0
+        ? Math.max(...usuarios.map((usuario) => usuario.id)) + 1
+        : 1,
+    nombre: datos.nombre,
+    email: datos.email.toLowerCase(),
+    passwordHash,
+    rol: datos.rol,
+    // ========================================
+    // Valor controlado por el servidor
+    // Nadie se crea desactivado ni se activa a sí mismo
+    // ========================================
     activo: true
   };
 
@@ -135,9 +178,11 @@ const crearAdministradorInicial = async () => {
 module.exports = {
   ROLES,
   ROL_POR_DEFECTO,
+  ROLES_ADMINISTRATIVOS,
   obtenerUsuarioPorEmail,
   obtenerUsuarioPorId,
   crearUsuario,
+  crearUsuarioAdministrativo,
   verificarCredenciales,
   crearAdministradorInicial
 };
