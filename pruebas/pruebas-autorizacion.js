@@ -1242,6 +1242,160 @@ const principal = async () => {
   );
 
   // ========================================
+  // Mass Assignment en el registro publico
+  // ========================================
+  // Son las pruebas 6 a 9 de la guia. El registro responde 201 y no 400 porque
+  // la entrada se filtra por lista blanca: matchedData conserva lo declarado y
+  // descarta el resto sin discutir. El campo se manda, se acepta la peticion, y
+  // simplemente no tiene efecto.
+  grupo("Mass Assignment en el registro");
+
+  const registrarCon = async (etiqueta, extra) => {
+    const correo = `registro${etiqueta}${marca}@teatro.com`;
+    const clave = `Clave-Larga-Registro-${etiqueta}-2026`;
+    const alta = await pedir("POST", "/api/auth/registro", {
+      nombre: `Registro ${etiqueta}`,
+      email: correo,
+      password: clave,
+      ...extra
+    });
+    const entrada = await pedir("POST", "/api/auth/login", {
+      email: correo,
+      password: clave
+    });
+    return { correo, clave, alta, entrada };
+  };
+
+  const conRol = await registrarCon("rol", { rol: "administrador" });
+  afirmar(
+    'Registrarse con rol "administrador" devuelve 201 y la cuenta queda asistente',
+    conRol.alta.estado === 201 &&
+      conRol.alta.datos.usuario.rol === "asistente" &&
+      rolDelToken(conRol.entrada.datos.token) === "asistente"
+      ? null
+      : `respondió ${conRol.alta.estado} y el rol quedó en ${conRol.alta.datos && conRol.alta.datos.usuario && conRol.alta.datos.usuario.rol}`
+  );
+
+  const conActivo = await registrarCon("activo", { activo: false });
+  afirmar(
+    "Registrarse con activo:false devuelve 201 y la cuenta queda activa",
+    conActivo.alta.estado === 201 &&
+      conActivo.alta.datos.usuario.activo === true &&
+      conActivo.entrada.estado === 200
+      ? null
+      : "la cuenta no quedó activa, o no pudo entrar"
+  );
+
+  const conHash = await registrarCon("hash", { passwordHash: "hash-falso" });
+  const hashFalso = await pedir("POST", "/api/auth/login", {
+    email: conHash.correo,
+    password: "hash-falso"
+  });
+  afirmar(
+    "Registrarse con passwordHash devuelve 201 y el hash enviado se ignora",
+    conHash.alta.estado === 201 &&
+      conHash.entrada.estado === 200 &&
+      hashFalso.estado === 401
+      ? null
+      : "el hash enviado por el cliente tuvo algún efecto"
+  );
+
+  const conInventado = await registrarCon("super", { esSuperAdmin: true });
+  afirmar(
+    "Registrarse con esSuperAdmin:true devuelve 201 y el campo no existe",
+    conInventado.alta.estado === 201 &&
+      !("esSuperAdmin" in conInventado.alta.datos.usuario) &&
+      rolDelToken(conInventado.entrada.datos.token) === "asistente"
+      ? null
+      : "el campo inventado dejó rastro"
+  );
+
+  // ========================================
+  // Modificar y borrar boletas por rol
+  // ========================================
+  // Es la prueba 28 de la guia. El cuerpo va vacio a proposito: autorizarRoles
+  // corre antes de los validadores, asi que un rol sin permiso recibe 403 sin
+  // que el cuerpo importe, y un rol con permiso recibe 400 al validarlo. Ese
+  // 400 es la prueba de que paso el control de rol.
+  grupo("Modificar y borrar boletas");
+
+  const idDeB = boletaB && boletaB.id;
+
+  await comprobar(
+    "Un asistente no modifica una boleta con PUT",
+    "PUT",
+    `/api/boletas/${idDeB}`,
+    {},
+    cuentaA.token,
+    403
+  );
+
+  await comprobar(
+    "Ni la suya propia",
+    "PUT",
+    `/api/boletas/${boletaA && boletaA.id}`,
+    {},
+    cuentaA.token,
+    403
+  );
+
+  const putTaquilla = await pedir("PUT", `/api/boletas/${idDeB}`, {}, tokenTaquilla);
+  afirmar(
+    "La taquilla sí pasa el control de rol del PUT",
+    putTaquilla.estado !== 401 && putTaquilla.estado !== 403
+      ? null
+      : `el control de rol la rechazó con ${putTaquilla.estado}`
+  );
+
+  await comprobar(
+    "Un asistente no modifica una boleta con PATCH",
+    "PATCH",
+    `/api/boletas/${idDeB}`,
+    {},
+    cuentaA.token,
+    403
+  );
+
+  const patchTaquilla = await pedir(
+    "PATCH",
+    `/api/boletas/${idDeB}`,
+    {},
+    tokenTaquilla
+  );
+  afirmar(
+    "La taquilla sí pasa el control de rol del PATCH",
+    patchTaquilla.estado !== 401 && patchTaquilla.estado !== 403
+      ? null
+      : `el control de rol la rechazó con ${patchTaquilla.estado}`
+  );
+
+  await comprobar(
+    "Un asistente no borra una boleta",
+    "DELETE",
+    `/api/boletas/${idDeB}`,
+    undefined,
+    cuentaA.token,
+    403
+  );
+
+  await comprobar(
+    "La taquilla tampoco: borrar es solo del administrador",
+    "DELETE",
+    `/api/boletas/${idDeB}`,
+    undefined,
+    tokenTaquilla,
+    403
+  );
+
+  const borrado = await pedir("DELETE", `/api/boletas/${idDeB}`, undefined, tokenAdministrador);
+  afirmar(
+    "El administrador sí pasa el control de rol del borrado",
+    borrado.estado !== 401 && borrado.estado !== 403
+      ? null
+      : `el control de rol lo rechazó con ${borrado.estado}`
+  );
+
+  // ========================================
   // Borrado del evento de prueba
   // ========================================
   grupo("Borrado");
