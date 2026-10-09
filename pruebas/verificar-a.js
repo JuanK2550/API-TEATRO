@@ -1,17 +1,8 @@
 // ========================================
 // Configuración
-// Carga el .env del proyecto y añade la X-API-Key a cada petición
+// La API Key y el token del administrador los pone sesion.js
 // ========================================
-const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
-
-const CLAVE_API = process.env.API_KEY_POSTMAN;
-const fetchSinClave = globalThis.fetch;
-globalThis.fetch = (url, opciones = {}) =>
-  fetchSinClave(url, {
-    ...opciones,
-    headers: { ...(opciones.headers || {}), "X-API-Key": CLAVE_API }
-  });
+const { entrarComoAdministrador } = require("./sesion");
 
 // Casos 1 a 16: validación de entrada, Mass Assignment, precios y localidades.
 const BASE = "http://localhost:3000";
@@ -68,6 +59,8 @@ const caso = async (numero, descripcion, metodo, ruta, cuerpo, esperado, extra) 
 };
 
 const principal = async () => {
+  await entrarComoAdministrador();
+
   // ---------- 1 a 7: validación y entrada ----------
   await caso(
     1,

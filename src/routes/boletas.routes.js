@@ -5,6 +5,7 @@ const express = require("express");
 
 const boletasController = require("../controllers/boletas.controller");
 const autenticarJWT = require("../middlewares/auth.middleware");
+const autorizarRoles = require("../middlewares/roles.middleware");
 const { validar } = require("../middlewares/validar.middleware");
 const {
   validarIdBoleta,
@@ -157,6 +158,9 @@ const router = express.Router();
  *   get:
  *     tags: [Boletas]
  *     summary: Lista todas las boletas
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Listado de boletas
@@ -178,8 +182,25 @@ const router = express.Router();
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
-router.get("/", boletasController.obtenerBoletas);
+router.get(
+  "/",
+  autenticarJWT,
+  autorizarRoles("administrador"),
+  boletasController.obtenerBoletas
+);
 
 // ========================================
 // GET /api/boletas/mias
@@ -233,7 +254,12 @@ router.get("/", boletasController.obtenerBoletas);
  *             schema:
  *               $ref: "#/components/schemas/Error"
  */
-router.get("/mias", autenticarJWT, boletasController.obtenerMisBoletas);
+router.get(
+  "/mias",
+  autenticarJWT,
+  autorizarRoles("asistente"),
+  boletasController.obtenerMisBoletas
+);
 
 // ========================================
 // GET /api/boletas/asistente/:asistenteId
@@ -251,6 +277,9 @@ router.get("/mias", autenticarJWT, boletasController.obtenerMisBoletas);
  *         schema:
  *           type: integer
  *           minimum: 1
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Boletas del asistente
@@ -278,9 +307,23 @@ router.get("/mias", autenticarJWT, boletasController.obtenerMisBoletas);
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.get(
   "/asistente/:asistenteId",
+  autenticarJWT,
+  autorizarRoles("administrador", "taquilla", "asistente"),
   validarAsistenteIdBoleta,
   validar,
   boletasController.obtenerBoletasPorAsistente
@@ -302,6 +345,9 @@ router.get(
  *         schema:
  *           type: integer
  *           minimum: 1
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Boletas de la función
@@ -329,9 +375,23 @@ router.get(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.get(
   "/funcion/:funcionId",
+  autenticarJWT,
+  autorizarRoles("administrador", "taquilla"),
   validarFuncionIdBoleta,
   validar,
   boletasController.obtenerBoletasPorFuncion
@@ -353,6 +413,9 @@ router.get(
  *         schema:
  *           type: integer
  *           minimum: 1
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Boleta encontrada
@@ -378,8 +441,27 @@ router.get(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
-router.get("/:id", validarIdBoleta, validar, boletasController.obtenerBoletaPorId);
+router.get(
+  "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador", "taquilla", "asistente"),
+  validarIdBoleta,
+  validar,
+  boletasController.obtenerBoletaPorId
+);
 
 // ========================================
 // POST /api/boletas
@@ -399,6 +481,9 @@ router.get("/:id", validarIdBoleta, validar, boletasController.obtenerBoletaPorI
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/BoletaEntrada"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       201:
  *         description: Boleta creada
@@ -429,8 +514,27 @@ router.get("/:id", validarIdBoleta, validar, boletasController.obtenerBoletaPorI
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
-router.post("/", validarCreacionBoleta, validar, boletasController.crearBoleta);
+router.post(
+  "/",
+  autenticarJWT,
+  autorizarRoles("administrador", "taquilla", "asistente"),
+  validarCreacionBoleta,
+  validar,
+  boletasController.crearBoleta
+);
 
 // ========================================
 // PUT /api/boletas/:id
@@ -457,6 +561,9 @@ router.post("/", validarCreacionBoleta, validar, boletasController.crearBoleta);
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/BoletaEntrada"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Boleta actualizada
@@ -488,9 +595,23 @@ router.post("/", validarCreacionBoleta, validar, boletasController.crearBoleta);
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.put(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador", "taquilla"),
   validarIdBoleta,
   validarActualizacionBoleta,
   validar,
@@ -524,6 +645,9 @@ router.put(
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/EstadoBoleta"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Estado de la boleta actualizado
@@ -555,9 +679,23 @@ router.put(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.patch(
   "/:id/estado",
+  autenticarJWT,
+  autorizarRoles("administrador", "taquilla", "asistente"),
   validarIdBoleta,
   validarEstadoBoleta,
   validar,
@@ -590,6 +728,9 @@ router.patch(
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/BoletaParcial"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Boleta actualizada
@@ -621,9 +762,23 @@ router.patch(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.patch(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador", "taquilla"),
   validarIdBoleta,
   validarBoletaParcial,
   validar,
@@ -647,6 +802,9 @@ router.patch(
  *         schema:
  *           type: integer
  *           minimum: 1
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Boleta eliminada
@@ -678,9 +836,23 @@ router.patch(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.delete(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdBoleta,
   validar,
   boletasController.eliminarBoleta

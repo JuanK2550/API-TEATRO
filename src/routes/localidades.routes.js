@@ -4,6 +4,8 @@
 const express = require("express");
 
 const localidadesController = require("../controllers/localidades.controller");
+const autenticarJWT = require("../middlewares/auth.middleware");
+const autorizarRoles = require("../middlewares/roles.middleware");
 const { validar } = require("../middlewares/validar.middleware");
 const {
   validarIdLocalidad,
@@ -208,6 +210,9 @@ router.get(
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/LocalidadEntrada"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       201:
  *         description: Localidad creada
@@ -233,9 +238,23 @@ router.get(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.post(
   "/",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarCreacionLocalidad,
   validar,
   localidadesController.crearLocalidad
@@ -264,6 +283,9 @@ router.post(
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/LocalidadEntrada"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Localidad actualizada
@@ -295,9 +317,23 @@ router.post(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.put(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdLocalidad,
   validarActualizacionLocalidad,
   validar,
@@ -327,6 +363,9 @@ router.put(
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/LocalidadParcial"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Localidad actualizada
@@ -358,9 +397,23 @@ router.put(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.patch(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdLocalidad,
   validarLocalidadParcial,
   validar,
@@ -390,6 +443,9 @@ router.patch(
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/EstadoLocalidadEntrada"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Estado de la localidad actualizado
@@ -415,9 +471,23 @@ router.patch(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.patch(
   "/:id/estado",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdLocalidad,
   validarEstadoLocalidad,
   validar,
@@ -440,6 +510,9 @@ router.patch(
  *         schema:
  *           type: integer
  *           minimum: 1
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Localidad eliminada
@@ -465,9 +538,23 @@ router.patch(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.delete(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdLocalidad,
   validar,
   localidadesController.eliminarLocalidad

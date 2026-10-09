@@ -5,6 +5,7 @@ const express = require("express");
 
 const asistentesController = require("../controllers/asistentes.controller");
 const autenticarJWT = require("../middlewares/auth.middleware");
+const autorizarRoles = require("../middlewares/roles.middleware");
 const { validar } = require("../middlewares/validar.middleware");
 const {
   validarIdAsistente,
@@ -116,6 +117,9 @@ const router = express.Router();
  *   get:
  *     tags: [Asistentes]
  *     summary: Lista todos los asistentes
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Listado de asistentes
@@ -137,8 +141,25 @@ const router = express.Router();
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
-router.get("/", asistentesController.obtenerAsistentes);
+router.get(
+  "/",
+  autenticarJWT,
+  autorizarRoles("administrador", "taquilla"),
+  asistentesController.obtenerAsistentes
+);
 
 // ========================================
 // GET /api/asistentes/mio
@@ -195,7 +216,12 @@ router.get("/", asistentesController.obtenerAsistentes);
  *             schema:
  *               $ref: "#/components/schemas/Error"
  */
-router.get("/mio", autenticarJWT, asistentesController.obtenerMiAsistente);
+router.get(
+  "/mio",
+  autenticarJWT,
+  autorizarRoles("asistente"),
+  asistentesController.obtenerMiAsistente
+);
 
 // ========================================
 // POST /api/asistentes/mio
@@ -265,6 +291,7 @@ router.get("/mio", autenticarJWT, asistentesController.obtenerMiAsistente);
 router.post(
   "/mio",
   autenticarJWT,
+  autorizarRoles("asistente"),
   validarCreacionAsistente,
   validar,
   asistentesController.crearMiAsistente
@@ -286,6 +313,9 @@ router.post(
  *         schema:
  *           type: integer
  *           minimum: 1
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Asistente encontrado
@@ -311,9 +341,23 @@ router.post(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.get(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador", "taquilla"),
   validarIdAsistente,
   validar,
   asistentesController.obtenerAsistentePorId
@@ -334,6 +378,9 @@ router.get(
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/AsistenteEntrada"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       201:
  *         description: Asistente creado
@@ -359,9 +406,23 @@ router.get(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.post(
   "/",
+  autenticarJWT,
+  autorizarRoles("administrador", "taquilla"),
   validarCreacionAsistente,
   validar,
   asistentesController.crearAsistente
@@ -389,6 +450,9 @@ router.post(
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/AsistenteEntrada"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Asistente actualizado
@@ -420,9 +484,23 @@ router.post(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.put(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdAsistente,
   validarActualizacionAsistente,
   validar,
@@ -451,6 +529,9 @@ router.put(
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/AsistenteParcial"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Asistente actualizado
@@ -482,9 +563,23 @@ router.put(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.patch(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdAsistente,
   validarAsistenteParcial,
   validar,
@@ -507,6 +602,9 @@ router.patch(
  *         schema:
  *           type: integer
  *           minimum: 1
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Asistente eliminado
@@ -532,9 +630,23 @@ router.patch(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.delete(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdAsistente,
   validar,
   asistentesController.eliminarAsistente

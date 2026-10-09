@@ -4,6 +4,8 @@
 const express = require("express");
 
 const eventosController = require("../controllers/eventos.controller");
+const autenticarJWT = require("../middlewares/auth.middleware");
+const autorizarRoles = require("../middlewares/roles.middleware");
 const { validar } = require("../middlewares/validar.middleware");
 const {
   validarIdEvento,
@@ -203,6 +205,9 @@ router.get("/:id", validarIdEvento, validar, eventosController.obtenerEventoPorI
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/EventoEntrada"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       201:
  *         description: Evento creado
@@ -222,8 +227,27 @@ router.get("/:id", validarIdEvento, validar, eventosController.obtenerEventoPorI
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
-router.post("/", validarCreacionEvento, validar, eventosController.crearEvento);
+router.post(
+  "/",
+  autenticarJWT,
+  autorizarRoles("administrador"),
+  validarCreacionEvento,
+  validar,
+  eventosController.crearEvento
+);
 
 // ========================================
 // PUT /api/eventos/:id
@@ -248,6 +272,9 @@ router.post("/", validarCreacionEvento, validar, eventosController.crearEvento);
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/EventoEntrada"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Evento actualizado
@@ -273,9 +300,23 @@ router.post("/", validarCreacionEvento, validar, eventosController.crearEvento);
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.put(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdEvento,
   validarActualizacionEvento,
   validar,
@@ -304,6 +345,9 @@ router.put(
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/EventoParcial"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Evento actualizado
@@ -329,9 +373,23 @@ router.put(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.patch(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdEvento,
   validarEventoParcial,
   validar,
@@ -361,6 +419,9 @@ router.patch(
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/EstadoEventoEntrada"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Estado del evento actualizado
@@ -386,9 +447,23 @@ router.patch(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.patch(
   "/:id/estado",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdEvento,
   validarEstadoEvento,
   validar,
@@ -411,6 +486,9 @@ router.patch(
  *         schema:
  *           type: integer
  *           minimum: 1
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Evento eliminado
@@ -436,8 +514,27 @@ router.patch(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
-router.delete("/:id", validarIdEvento, validar, eventosController.eliminarEvento);
+router.delete(
+  "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador"),
+  validarIdEvento,
+  validar,
+  eventosController.eliminarEvento
+);
 
 // ========================================
 // Exportaciones

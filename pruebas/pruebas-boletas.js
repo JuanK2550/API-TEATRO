@@ -1,17 +1,8 @@
 // ========================================
 // Configuración
-// Carga el .env del proyecto y añade la X-API-Key a cada petición
+// La API Key y el token del administrador los pone sesion.js
 // ========================================
-const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
-
-const CLAVE_API = process.env.API_KEY_POSTMAN;
-const fetchSinClave = globalThis.fetch;
-globalThis.fetch = (url, opciones = {}) =>
-  fetchSinClave(url, {
-    ...opciones,
-    headers: { ...(opciones.headers || {}), "X-API-Key": CLAVE_API }
-  });
+const { entrarComoAdministrador } = require("./sesion");
 
 // Batería de pruebas del recurso boletas contra el servidor en marcha.
 const BASE = "http://localhost:3000";
@@ -79,6 +70,8 @@ const informe = () => {
 };
 
 const principal = async () => {
+  await entrarComoAdministrador();
+
   // ========================================
   // Consultas
   // ========================================
