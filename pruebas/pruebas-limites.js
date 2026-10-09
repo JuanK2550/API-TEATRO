@@ -1,17 +1,8 @@
 // ========================================
 // Configuración
-// Carga el .env del proyecto y añade la X-API-Key a cada petición
+// La API Key y el token del administrador los pone sesion.js
 // ========================================
-const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
-
-const CLAVE_API = process.env.API_KEY_POSTMAN;
-const fetchSinClave = globalThis.fetch;
-globalThis.fetch = (url, opciones = {}) =>
-  fetchSinClave(url, {
-    ...opciones,
-    headers: { ...(opciones.headers || {}), "X-API-Key": CLAVE_API }
-  });
+const { entrarComoAdministrador } = require("./sesion");
 
 // Límites de venta, reventa tras cancelación y regresión de la fase 4.
 const BASE = "http://localhost:3000";
@@ -58,6 +49,8 @@ const comprobar = async (descripcion, metodo, ruta, cuerpo, esperado, extra) => 
 };
 
 const principal = async () => {
+  await entrarComoAdministrador();
+
   // ========================================
   // Límite de boletas por asistente
   // ========================================

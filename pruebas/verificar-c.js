@@ -1,17 +1,8 @@
 // ========================================
 // Configuración
-// Carga el .env del proyecto y añade la X-API-Key a cada petición
+// La API Key y el token del administrador los pone sesion.js
 // ========================================
-const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
-
-const CLAVE_API = process.env.API_KEY_POSTMAN;
-const fetchSinClave = globalThis.fetch;
-globalThis.fetch = (url, opciones = {}) =>
-  fetchSinClave(url, {
-    ...opciones,
-    headers: { ...(opciones.headers || {}), "X-API-Key": CLAVE_API }
-  });
+const { entrarComoAdministrador } = require("./sesion");
 
 // Casos 32 a 35: seguridad de transporte. El caso 33 agota el límite de
 // peticiones, así que se ejecuta el último de todos.
@@ -23,6 +14,8 @@ const registrar = (numero, descripcion, peticion, esperado, obtenido, ok, nota) 
 };
 
 const principal = async () => {
+  await entrarComoAdministrador();
+
   // ---------- 32: cuerpo mayor de 10kb ----------
   // express.json está configurado con limit: "10kb".
   const relleno = "x".repeat(12 * 1024);

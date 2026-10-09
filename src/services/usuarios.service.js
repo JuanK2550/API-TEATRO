@@ -79,6 +79,57 @@ const verificarCredenciales = async (email, password) => {
 };
 
 // ========================================
+// Administrador inicial
+// Sin él nadie podría crear el primer administrador
+// ========================================
+// El problema es de arranque: las operaciones administrativas exigen un
+// administrador, y crear administradores es una operación administrativa. Se
+// rompe sembrando uno desde el entorno al levantar el servidor.
+//
+// Las credenciales viven solo en el .env. Aquí no se imprime el correo ni la
+// contraseña: un log con la contraseña del administrador es tan grave como
+// escribirla en el código, porque los registros se copian, se comparten y se
+// suben a sistemas de monitoreo.
+const crearAdministradorInicial = async () => {
+  const nombre = process.env.ADMIN_NOMBRE;
+  const email = process.env.ADMIN_EMAIL;
+  const password = process.env.ADMIN_PASSWORD;
+
+  if (!nombre || !email || !password) {
+    console.warn(
+      "Administrador inicial no configurado: faltan ADMIN_NOMBRE, ADMIN_EMAIL o ADMIN_PASSWORD"
+    );
+    return null;
+  }
+
+  const existente = obtenerUsuarioPorEmail(email);
+  if (existente) return existente;
+
+  const passwordHash = await generarPasswordHash(password);
+
+  const administrador = {
+    id:
+      usuarios.length > 0
+        ? Math.max(...usuarios.map((usuario) => usuario.id)) + 1
+        : 1,
+    nombre,
+    email: email.toLowerCase(),
+    passwordHash,
+    // ========================================
+    // Valores controlados por el servidor
+    // ========================================
+    rol: "administrador",
+    activo: true
+  };
+
+  usuarios.push(administrador);
+
+  console.log("Administrador inicial creado");
+
+  return administrador;
+};
+
+// ========================================
 // Exportaciones
 // ========================================
 module.exports = {
@@ -87,5 +138,6 @@ module.exports = {
   obtenerUsuarioPorEmail,
   obtenerUsuarioPorId,
   crearUsuario,
-  verificarCredenciales
+  verificarCredenciales,
+  crearAdministradorInicial
 };

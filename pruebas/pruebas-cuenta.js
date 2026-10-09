@@ -1,17 +1,10 @@
 // ========================================
 // Configuración
-// Carga el .env del proyecto y añade la X-API-Key a cada petición
+// La API Key la pone sesion.js; el token lo elige cada petición
 // ========================================
-const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
-
-const CLAVE_API = process.env.API_KEY_POSTMAN;
-const fetchSinClave = globalThis.fetch;
-globalThis.fetch = (url, opciones = {}) =>
-  fetchSinClave(url, {
-    ...opciones,
-    headers: { ...(opciones.headers || {}), "X-API-Key": CLAVE_API }
-  });
+// Esta batería cambia de identidad a propósito, así que no fija un token
+// global: cada llamada dice con cuál va, y sin token significa sin token.
+const { entrarComoAdministrador, usarToken } = require("./sesion");
 
 // Batería del asistente ligado a la cuenta: quien ya compró no vuelve a
 // escribir su documento, y nadie lee las boletas de otra persona.
@@ -102,6 +95,11 @@ const datosDe = (etiqueta, documento) => ({
 });
 
 const principal = async () => {
+  // Las tres últimas comprobaciones tocan rutas que ahora son de
+  // administrador; el resto va con el token de cada cuenta.
+  const tokenAdministrador = await entrarComoAdministrador();
+  usarToken(null);
+
   const primera = await crearCuenta("primera");
   const segunda = await crearCuenta("segunda");
   const tercera = await crearCuenta("tercera");
@@ -314,7 +312,9 @@ const principal = async () => {
   // El vínculo sobrevive a las actualizaciones
   // ========================================
   grupo("Actualizaciones");
-  tokenActual = primera.token;
+  // PUT, PATCH y la consulta de un asistente por id son de administrador
+  // desde el bloque 6: el asistente ya no puede editarse a sí mismo por ahí.
+  tokenActual = tokenAdministrador;
 
   await comprobar(
     "El PUT conserva el usuarioId",

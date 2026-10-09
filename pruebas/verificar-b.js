@@ -1,17 +1,8 @@
 // ========================================
 // Configuración
-// Carga el .env del proyecto y añade la X-API-Key a cada petición
+// La API Key y el token del administrador los pone sesion.js
 // ========================================
-const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
-
-const CLAVE_API = process.env.API_KEY_POSTMAN;
-const fetchSinClave = globalThis.fetch;
-globalThis.fetch = (url, opciones = {}) =>
-  fetchSinClave(url, {
-    ...opciones,
-    headers: { ...(opciones.headers || {}), "X-API-Key": CLAVE_API }
-  });
+const { entrarComoAdministrador } = require("./sesion");
 
 // Casos 17 a 31: concurrencia y aforo, agenda de la sala, máquina de estados
 // e integridad referencial.
@@ -68,6 +59,8 @@ const caso = async (numero, descripcion, metodo, ruta, cuerpo, esperado, extra) 
 };
 
 const principal = async () => {
+  await entrarComoAdministrador();
+
   // ---------- 17 y 18: butaca ocupada y liberada ----------
   const primera = await caso(
     17,

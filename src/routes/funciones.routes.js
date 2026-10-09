@@ -4,6 +4,8 @@
 const express = require("express");
 
 const funcionesController = require("../controllers/funciones.controller");
+const autenticarJWT = require("../middlewares/auth.middleware");
+const autorizarRoles = require("../middlewares/roles.middleware");
 const { validar } = require("../middlewares/validar.middleware");
 const {
   validarIdFuncion,
@@ -462,6 +464,9 @@ router.get("/:id", validarIdFuncion, validar, funcionesController.obtenerFuncion
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/FuncionEntrada"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       201:
  *         description: Función creada
@@ -490,8 +495,27 @@ router.get("/:id", validarIdFuncion, validar, funcionesController.obtenerFuncion
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
-router.post("/", validarCreacionFuncion, validar, funcionesController.crearFuncion);
+router.post(
+  "/",
+  autenticarJWT,
+  autorizarRoles("administrador"),
+  validarCreacionFuncion,
+  validar,
+  funcionesController.crearFuncion
+);
 
 // ========================================
 // PUT /api/funciones/:id
@@ -516,6 +540,9 @@ router.post("/", validarCreacionFuncion, validar, funcionesController.crearFunci
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/FuncionEntrada"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Función actualizada
@@ -549,9 +576,23 @@ router.post("/", validarCreacionFuncion, validar, funcionesController.crearFunci
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.put(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdFuncion,
   validarActualizacionFuncion,
   validar,
@@ -584,6 +625,9 @@ router.put(
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/EstadoFuncion"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Estado de la función actualizado
@@ -615,9 +659,23 @@ router.put(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.patch(
   "/:id/estado",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdFuncion,
   validarEstadoFuncion,
   validar,
@@ -649,6 +707,9 @@ router.patch(
  *         application/json:
  *           schema:
  *             $ref: "#/components/schemas/FuncionParcial"
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Función actualizada
@@ -682,9 +743,23 @@ router.patch(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.patch(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdFuncion,
   validarFuncionParcial,
   validar,
@@ -708,6 +783,9 @@ router.patch(
  *         schema:
  *           type: integer
  *           minimum: 1
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
  *     responses:
  *       200:
  *         description: Función eliminada
@@ -739,9 +817,23 @@ router.patch(
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no tiene permiso para esta operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
  */
 router.delete(
   "/:id",
+  autenticarJWT,
+  autorizarRoles("administrador"),
   validarIdFuncion,
   validar,
   funcionesController.eliminarFuncion
