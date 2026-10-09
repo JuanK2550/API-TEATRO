@@ -94,12 +94,22 @@ const afirmar = (descripcion, problema) => {
 };
 
 const MENSAJE_403 = "No tiene permisos para realizar esta operación";
+const SIN_ASISTENTE = "El usuario no tiene un asistente asociado";
 
 // El rol viaja en la carga del JWT; aquí se lee sin verificar la firma,
 // que es trabajo del servidor.
 const rolDelToken = (token) => {
   try {
     return JSON.parse(Buffer.from(token.split(".")[1], "base64").toString()).rol;
+  } catch {
+    return null;
+  }
+};
+
+// El id de la cuenta sale del claim sub, que es donde lo pone generarToken.
+const idDelToken = (token) => {
+  try {
+    return JSON.parse(Buffer.from(token.split(".")[1], "base64").toString()).sub;
   } catch {
     return null;
   }
@@ -328,14 +338,18 @@ const principal = async () => {
     403
   );
 
+  // Desde el bloque 6C una cuenta sin datos de asistente no recibe una lista
+  // vacía sino un 403: la ruta pide una condición que esa cuenta no cumple.
+  // El caso con perfil y respuesta 200 lo cubren A y B más abajo.
   await comprobar(
-    "El asistente consulta sus propias boletas",
+    "Una cuenta de asistente sin perfil no llega a sus boletas",
     "GET",
     "/api/boletas/mias",
     undefined,
     tokenAsistente,
-    200,
-    (d) => (Array.isArray(d) ? null : "no devolvió un array")
+    403,
+    (d) =>
+      d && d.mensaje === SIN_ASISTENTE ? null : `el mensaje es "${d && d.mensaje}"`
   );
 
   // ========================================
@@ -611,6 +625,620 @@ const principal = async () => {
   afirmar(
     "La cuenta de taquilla original sigue existiendo tras los 409",
     taquillaCreada && taquillaCreada.usuario ? null : "no se creó la taquilla"
+  );
+
+  // ========================================
+  // Dos asistentes con boletas propias
+  // ========================================
+  // Es el montaje del IDOR: A y B compran, y después cada uno intenta leer y
+  // tocar lo del otro. Sin esto no hay nada que probar.
+  grupo("Montaje de A y B");
+
+  const cuentaDeAsistente = async (etiqueta) => {
+    const correo = `${etiqueta}${marca}@teatro.com`;
+    const clave = `Clave-Larga-${etiqueta}-2026`;
+    await pedir("POST", "/api/auth/registro", {
+      nombre: `Asistente ${etiqueta}`,
+      email: correo,
+      password: clave
+    });
+    const entrada = await pedir("POST", "/api/auth/login", {
+      email: correo,
+      password: clave
+    });
+    return { correo, token: entrada.datos && entrada.datos.token };
+  };
+
+  const cuentaA = await cuentaDeAsistente("asistenteA");
+  const cuentaB = await cuentaDeAsistente("asistenteB");
+
+  // La función 1 tiene que estar en venta para poder comprar.
+  await pedir(
+    "PATCH",
+    "/api/funciones/1/estado",
+    { estado: "en_venta" },
+    tokenAdministrador
+  );
+
+  const serie = `${marca}`.slice(-9);
+
+  const perfilDe = async (cuenta, etiqueta, documento) => {
+    const r = await pedir(
+      "POST",
+      "/api/asistentes/mio",
+      {
+        nombre: `Asistente ${etiqueta}`,
+        documento,
+        email: cuenta.correo,
+        telefono: "3124567890",
+        fechaNacimiento: "1995-03-14"
+      },
+      cuenta.token
+    );
+    return r.datos && r.datos.asistente;
+  };
+
+  const perfilA = await perfilDe(cuentaA, "A", serie + "1");
+  const perfilB = await perfilDe(cuentaB, "B", serie + "2");
+
+  afirmar(
+    "A y B tienen perfiles de asistente distintos",
+    perfilA && perfilB && perfilA.id !== perfilB.id
+      ? null
+      : "no se crearon los dos perfiles"
+  );
+
+  // Las dos compras mandan el asistenteId de A a propósito: la de B tiene que
+  // acabar a nombre de B igualmente.
+  const comprar = async (cuenta, fila, numero) => {
+    const r = await pedir(
+      "POST",
+      "/api/boletas",
+      {
+        asistenteId: perfilA ? perfilA.id : 1,
+        funcionId: 1,
+        localidadId: 1,
+        fila,
+        numero,
+        tipoDescuento: "ninguno"
+      },
+      cuenta.token
+    );
+    return r.datos && r.datos.boleta;
+  };
+
+  // La butaca sale de la marca de tiempo: así dos pasadas seguidas contra el
+  // mismo servidor no se pelean por la misma silla.
+  const butaca = (marca % 19) + 1;
+  const boletaA = await comprar(cuentaA, 3, butaca);
+  const boletaB = await comprar(cuentaB, 3, butaca + 1);
+
+  afirmar(
+    "Comprar a nombre de otro acaba a nombre propio: el asistenteId del cuerpo se ignora",
+    boletaB && perfilB && boletaB.asistenteId === perfilB.id
+      ? null
+      : `la boleta de B salió a nombre del asistente ${boletaB && boletaB.asistenteId}, y B es el ${perfilB && perfilB.id}`
+  );
+
+  afirmar(
+    "La boleta de A sí es de A",
+    boletaA && perfilA && boletaA.asistenteId === perfilA.id
+      ? null
+      : "la boleta de A no quedó a su nombre"
+  );
+
+  // ========================================
+  // IDOR por asistenteId
+  // ========================================
+  grupo("IDOR por asistenteId");
+
+  await comprobar(
+    "A lee sus propias boletas por su asistenteId",
+    "GET",
+    `/api/boletas/asistente/${perfilA && perfilA.id}`,
+    undefined,
+    cuentaA.token,
+    200,
+    (d) =>
+      Array.isArray(d) && d.length > 0 && d.every((b) => b.asistenteId === perfilA.id)
+        ? null
+        : "devolvió boletas que no son de A"
+  );
+
+  await comprobar(
+    "A NO lee las de B cambiando el número",
+    "GET",
+    `/api/boletas/asistente/${perfilB && perfilB.id}`,
+    undefined,
+    cuentaA.token,
+    403
+  );
+
+  await comprobar(
+    "B tampoco lee las de A",
+    "GET",
+    `/api/boletas/asistente/${perfilA && perfilA.id}`,
+    undefined,
+    cuentaB.token,
+    403
+  );
+
+  await comprobar(
+    "El administrador lee las de cualquiera",
+    "GET",
+    `/api/boletas/asistente/${perfilB && perfilB.id}`,
+    undefined,
+    tokenAdministrador,
+    200
+  );
+
+  await comprobar(
+    "La taquilla también: atiende a quien tiene delante",
+    "GET",
+    `/api/boletas/asistente/${perfilA && perfilA.id}`,
+    undefined,
+    tokenTaquilla,
+    200
+  );
+
+  await comprobar(
+    "Un asistente sin perfil recibe 403, no la lista de otro",
+    "GET",
+    `/api/boletas/asistente/${perfilA && perfilA.id}`,
+    undefined,
+    tokenAsistente,
+    403,
+    (d) =>
+      d && d.mensaje === SIN_ASISTENTE ? null : `el mensaje es "${d && d.mensaje}"`
+  );
+
+  // 403 y no 404: si el código dependiera de que el id exista, la diferencia
+  // entre las dos respuestas diría cuántos asistentes hay registrados.
+  await comprobar(
+    "Un asistenteId inexistente también es 403 para un asistente",
+    "GET",
+    "/api/boletas/asistente/9999",
+    undefined,
+    cuentaA.token,
+    403
+  );
+
+  // ========================================
+  // IDOR por id de boleta
+  // ========================================
+  grupo("IDOR por id de boleta");
+
+  await comprobar(
+    "A lee su propia boleta",
+    "GET",
+    `/api/boletas/${boletaA && boletaA.id}`,
+    undefined,
+    cuentaA.token,
+    200,
+    (d) => (d && d.id === boletaA.id ? null : "devolvió otra boleta")
+  );
+
+  await comprobar(
+    "A NO lee la boleta de B",
+    "GET",
+    `/api/boletas/${boletaB && boletaB.id}`,
+    undefined,
+    cuentaA.token,
+    403
+  );
+
+  await comprobar(
+    "B NO lee la boleta de A",
+    "GET",
+    `/api/boletas/${boletaA && boletaA.id}`,
+    undefined,
+    cuentaB.token,
+    403
+  );
+
+  await comprobar(
+    "El administrador lee cualquier boleta",
+    "GET",
+    `/api/boletas/${boletaB && boletaB.id}`,
+    undefined,
+    tokenAdministrador,
+    200
+  );
+
+  await comprobar(
+    "La taquilla lee cualquier boleta",
+    "GET",
+    `/api/boletas/${boletaA && boletaA.id}`,
+    undefined,
+    tokenTaquilla,
+    200
+  );
+
+  await comprobar(
+    "Una boleta inexistente es 404",
+    "GET",
+    "/api/boletas/9999",
+    undefined,
+    tokenAdministrador,
+    404
+  );
+
+  // ========================================
+  // Listado completo de la boletería
+  // ========================================
+  grupo("Listado completo");
+
+  await comprobar(
+    "A no lista toda la boletería",
+    "GET",
+    "/api/boletas",
+    undefined,
+    cuentaA.token,
+    403
+  );
+
+  await comprobar(
+    "La taquilla tampoco: para eso están las consultas por asistente y por función",
+    "GET",
+    "/api/boletas",
+    undefined,
+    tokenTaquilla,
+    403
+  );
+
+  await comprobar(
+    "El administrador sí",
+    "GET",
+    "/api/boletas",
+    undefined,
+    tokenAdministrador,
+    200
+  );
+
+  // ========================================
+  // Las boletas de cada cual
+  // ========================================
+  grupo("Las boletas de cada cual");
+
+  await comprobar(
+    "A ve en /mias solo sus boletas",
+    "GET",
+    "/api/boletas/mias",
+    undefined,
+    cuentaA.token,
+    200,
+    (d) =>
+      Array.isArray(d) && d.length > 0 && d.every((b) => b.asistenteId === perfilA.id)
+        ? null
+        : "devolvió boletas que no son de A"
+  );
+
+  await comprobar(
+    "B ve en /mias solo las suyas",
+    "GET",
+    "/api/boletas/mias",
+    undefined,
+    cuentaB.token,
+    200,
+    (d) =>
+      Array.isArray(d) && d.length > 0 && d.every((b) => b.asistenteId === perfilB.id)
+        ? null
+        : "devolvió boletas que no son de B"
+  );
+
+  await comprobar(
+    "Un asistente sin perfil recibe 403 en /mias",
+    "GET",
+    "/api/boletas/mias",
+    undefined,
+    tokenAsistente,
+    403,
+    (d) =>
+      d && d.mensaje === SIN_ASISTENTE ? null : `el mensaje es "${d && d.mensaje}"`
+  );
+
+  await comprobar(
+    "El administrador no tiene /mias",
+    "GET",
+    "/api/boletas/mias",
+    undefined,
+    tokenAdministrador,
+    403
+  );
+
+  await comprobar(
+    "La taquilla tampoco",
+    "GET",
+    "/api/boletas/mias",
+    undefined,
+    tokenTaquilla,
+    403
+  );
+
+  // ========================================
+  // Estado de una boleta
+  // ========================================
+  grupo("Estado de una boleta");
+
+  await comprobar(
+    "A no toca el estado de la boleta de B",
+    "PATCH",
+    `/api/boletas/${boletaB && boletaB.id}/estado`,
+    { estado: "cancelada" },
+    cuentaA.token,
+    403
+  );
+
+  await comprobar(
+    "A no marca su propia boleta como usada: eso se hace en la puerta",
+    "PATCH",
+    `/api/boletas/${boletaA && boletaA.id}/estado`,
+    { estado: "usada" },
+    cuentaA.token,
+    403,
+    (d) =>
+      d && /usada/.test(d.mensaje || "") ? null : `el mensaje es "${d && d.mensaje}"`
+  );
+
+  await comprobar(
+    "A sí paga su propia boleta",
+    "PATCH",
+    `/api/boletas/${boletaA && boletaA.id}/estado`,
+    { estado: "pagada" },
+    cuentaA.token,
+    200,
+    (d) => (d && d.boleta && d.boleta.estado === "pagada" ? null : "no quedó pagada")
+  );
+
+  await comprobar(
+    "Y la cancela",
+    "PATCH",
+    `/api/boletas/${boletaA && boletaA.id}/estado`,
+    { estado: "cancelada" },
+    cuentaA.token,
+    200,
+    (d) =>
+      d && d.boleta && d.boleta.estado === "cancelada" ? null : "no quedó cancelada"
+  );
+
+  // El permiso no deroga la máquina de estados: cancelada es terminal, así que
+  // ni su dueño la revive.
+  await comprobar(
+    "Una transición imposible es 409, aunque la boleta sea suya",
+    "PATCH",
+    `/api/boletas/${boletaA && boletaA.id}/estado`,
+    { estado: "pagada" },
+    cuentaA.token,
+    409
+  );
+
+  // La taquilla pasa el control de rol y choca con la validación en la puerta:
+  // 409 y no 403, que es la prueba de que son dos controles distintos.
+  await comprobar(
+    "La taquilla sí puede pedir usada, y entonces decide la máquina de estados",
+    "PATCH",
+    `/api/boletas/${boletaB && boletaB.id}/estado`,
+    { estado: "usada" },
+    tokenTaquilla,
+    409
+  );
+
+  await comprobar(
+    "Cambiar el estado de una boleta inexistente es 404",
+    "PATCH",
+    "/api/boletas/9999/estado",
+    { estado: "cancelada" },
+    tokenAdministrador,
+    404
+  );
+
+  // ========================================
+  // El perfil propio
+  // ========================================
+  grupo("Perfil propio");
+
+  await comprobar(
+    "A cambia su teléfono sin que haya ningún id en la dirección",
+    "PATCH",
+    "/api/asistentes/mio",
+    { telefono: "3209876543" },
+    cuentaA.token,
+    200,
+    (d) =>
+      d && d.asistente && d.asistente.telefono === "3209876543"
+        ? null
+        : "no se guardó el teléfono"
+  );
+
+  await comprobar(
+    "Al editarse, A conserva su vínculo con la cuenta",
+    "GET",
+    "/api/asistentes/mio",
+    undefined,
+    cuentaA.token,
+    200,
+    (d) =>
+      d && d.id === perfilA.id && d.usuarioId !== null
+        ? null
+        : "perdió el usuarioId al editarse"
+  );
+
+  await comprobar(
+    "A no se reasigna a otra cuenta por su propio perfil",
+    "PATCH",
+    "/api/asistentes/mio",
+    { usuarioId: 1 },
+    cuentaA.token,
+    403
+  );
+
+  await comprobar(
+    "Un PATCH propio sin ningún campo es 400",
+    "PATCH",
+    "/api/asistentes/mio",
+    {},
+    cuentaA.token,
+    400
+  );
+
+  await comprobar(
+    "El administrador no usa el perfil propio",
+    "PATCH",
+    "/api/asistentes/mio",
+    { telefono: "3209876543" },
+    tokenAdministrador,
+    403
+  );
+
+  // ========================================
+  // Asociación con una cuenta
+  // ========================================
+  grupo("Asociación con una cuenta");
+
+  const suelto = await comprobar(
+    "El administrador crea un asistente sin cuenta",
+    "POST",
+    "/api/asistentes",
+    {
+      nombre: "Asistente de mostrador",
+      documento: serie + "3",
+      email: `mostrador${marca}@correo.com`,
+      telefono: "3124567890",
+      fechaNacimiento: "1990-05-20"
+    },
+    tokenAdministrador,
+    201,
+    (d) =>
+      d && d.asistente && d.asistente.usuarioId === null
+        ? null
+        : "nació con un vínculo que nadie pidió"
+  );
+  const idSuelto = suelto && suelto.asistente && suelto.asistente.id;
+
+  await comprobar(
+    "Un usuarioId que no existe es 400",
+    "PATCH",
+    `/api/asistentes/${idSuelto}`,
+    { usuarioId: 99999 },
+    tokenAdministrador,
+    400,
+    (d) =>
+      d && d.mensaje === "El usuario asociado no existe"
+        ? null
+        : `el mensaje es "${d && d.mensaje}"`
+  );
+
+  await comprobar(
+    "Asociar una cuenta que no es de asistente es 409",
+    "PATCH",
+    `/api/asistentes/${idSuelto}`,
+    { usuarioId: 1 },
+    tokenAdministrador,
+    409
+  );
+
+  await comprobar(
+    "Asociar una cuenta que ya tiene asistente es 409",
+    "PATCH",
+    `/api/asistentes/${idSuelto}`,
+    { usuarioId: perfilA && perfilA.usuarioId },
+    tokenAdministrador,
+    409,
+    (d) =>
+      d && d.mensaje === "Ese usuario ya está asociado a otro asistente"
+        ? null
+        : `el mensaje es "${d && d.mensaje}"`
+  );
+
+  // La cuenta del grupo "Identidades" es la única de asistente sin perfil.
+  const usuarioLibre = Number(idDelToken(tokenAsistente));
+
+  await comprobar(
+    "La taquilla no asocia un asistente a una cuenta",
+    "PATCH",
+    `/api/asistentes/${idSuelto}`,
+    { usuarioId: usuarioLibre },
+    tokenTaquilla,
+    403,
+    // Aquí el 403 lo pone autorizarRoles, porque PATCH /:id es solo del
+    // administrador: la taquilla no llega al controlador. El mensaje propio
+    // de la asociación se comprueba en el POST, donde la taquilla sí entra.
+    (d) => (d && d.mensaje === MENSAJE_403 ? null : `el mensaje es "${d && d.mensaje}"`)
+  );
+
+  await comprobar(
+    "La taquilla tampoco al crear el asistente",
+    "POST",
+    "/api/asistentes",
+    {
+      nombre: "Asistente con cuenta",
+      documento: serie + "4",
+      email: `concuenta${marca}@correo.com`,
+      telefono: "3124567890",
+      fechaNacimiento: "1990-05-20",
+      usuarioId: usuarioLibre
+    },
+    tokenTaquilla,
+    403,
+    (d) =>
+      d &&
+      d.mensaje === "Solo un administrador puede asociar un asistente a una cuenta"
+        ? null
+        : `el mensaje es "${d && d.mensaje}"`
+  );
+
+  await comprobar(
+    "El administrador sí asocia",
+    "PATCH",
+    `/api/asistentes/${idSuelto}`,
+    { usuarioId: usuarioLibre },
+    tokenAdministrador,
+    200,
+    (d) =>
+      d && d.asistente && d.asistente.usuarioId === usuarioLibre
+        ? null
+        : "no se guardó el vínculo"
+  );
+
+  await comprobar(
+    "Y desde ese momento esa cuenta ve ese perfil en /mio",
+    "GET",
+    "/api/asistentes/mio",
+    undefined,
+    tokenAsistente,
+    200,
+    (d) => (d && d.id === idSuelto ? null : "/mio devolvió otro perfil")
+  );
+
+  // ========================================
+  // La puerta del 6C
+  // ========================================
+  grupo("La puerta del 6C");
+
+  await comprobar(
+    "Leer una boleta sin JWT es 401",
+    "GET",
+    `/api/boletas/${boletaA && boletaA.id}`,
+    undefined,
+    null,
+    401
+  );
+
+  await comprobar(
+    "Las boletas de un asistente sin JWT son 401",
+    "GET",
+    `/api/boletas/asistente/${perfilA && perfilA.id}`,
+    undefined,
+    null,
+    401
+  );
+
+  const boletaSinClave = await pedirSinCredenciales(
+    `${BASE}/api/boletas/${boletaA && boletaA.id}`
+  );
+  afirmar(
+    "Leer una boleta sin X-API-Key es 401",
+    boletaSinClave.status === 401 ? null : `respondió ${boletaSinClave.status}`
   );
 
   // ========================================

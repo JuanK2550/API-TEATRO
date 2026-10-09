@@ -83,7 +83,11 @@ const actualizarAsistente = (id, datos) => {
     email: datos.email,
     telefono: datos.telefono,
     fechaNacimiento: datos.fechaNacimiento,
-    usuarioId: asistentes[indice].usuarioId
+    // ========================================
+    // El vínculo con la cuenta
+    // Se fija si llega, se conserva si no: nunca se borra por omisión
+    // ========================================
+    usuarioId: datos.usuarioId ?? asistentes[indice].usuarioId
   };
 
   return asistentes[indice];
@@ -106,7 +110,7 @@ const actualizarAsistenteParcial = (id, datos) => {
     email: datos.email ?? actual.email,
     telefono: datos.telefono ?? actual.telefono,
     fechaNacimiento: datos.fechaNacimiento ?? actual.fechaNacimiento,
-    usuarioId: actual.usuarioId
+    usuarioId: datos.usuarioId ?? actual.usuarioId
   };
 
   return asistentes[indice];

@@ -6,6 +6,11 @@ const express = require("express");
 const boletasController = require("../controllers/boletas.controller");
 const autenticarJWT = require("../middlewares/auth.middleware");
 const autorizarRoles = require("../middlewares/roles.middleware");
+const {
+  autorizarAsistentePropio,
+  autorizarAccesoBoleta,
+  autorizarCambioEstadoBoleta
+} = require("../middlewares/propiedad.middleware");
 const { validar } = require("../middlewares/validar.middleware");
 const {
   validarIdBoleta,
@@ -215,8 +220,8 @@ router.get(
  *     description: >
  *       El asistente se resuelve desde el token. A diferencia de
  *       /api/boletas/asistente/{asistenteId}, aquí no hay ningún id que cambiar
- *       para leer las boletas de otra persona. Devuelve un array vacío si la
- *       cuenta todavía no tiene datos de asistente.
+ *       para leer las boletas de otra persona. Una cuenta sin datos de
+ *       asistente todavía no cumple la condición de la ruta y recibe 403.
  *     security:
  *       - ApiKeyAuth: []
  *         BearerAuth: []
@@ -236,7 +241,9 @@ router.get(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       403:
- *         description: API Key deshabilitada
+ *         description: >
+ *           El rol autenticado no es asistente, o la cuenta todavía no
+ *           tiene un asistente asociado
  *         content:
  *           application/json:
  *             schema:
@@ -270,6 +277,10 @@ router.get(
  *   get:
  *     tags: [Boletas]
  *     summary: Lista las boletas de un asistente
+ *     description: >
+ *       El asistente solo puede consultar su propio asistenteId, resuelto
+ *       desde el token. La taquilla y la administración consultan el de
+ *       cualquiera.
  *     parameters:
  *       - in: path
  *         name: asistenteId
@@ -314,7 +325,9 @@ router.get(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       403:
- *         description: El rol autenticado no tiene permiso para esta operación
+ *         description: >
+ *           El rol autenticado no tiene permiso, o un asistente pidió las
+ *           boletas de otra persona
  *         content:
  *           application/json:
  *             schema:
@@ -326,6 +339,7 @@ router.get(
   autorizarRoles("administrador", "taquilla", "asistente"),
   validarAsistenteIdBoleta,
   validar,
+  autorizarAsistentePropio,
   boletasController.obtenerBoletasPorAsistente
 );
 
@@ -406,6 +420,9 @@ router.get(
  *   get:
  *     tags: [Boletas]
  *     summary: Obtiene una boleta por su id
+ *     description: >
+ *       El asistente solo ve sus propias boletas. La taquilla y la
+ *       administración ven cualquiera.
  *     parameters:
  *       - in: path
  *         name: id
@@ -448,7 +465,7 @@ router.get(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       403:
- *         description: El rol autenticado no tiene permiso para esta operación
+ *         description: Un asistente pidió una boleta que no es suya
  *         content:
  *           application/json:
  *             schema:
@@ -460,6 +477,7 @@ router.get(
   autorizarRoles("administrador", "taquilla", "asistente"),
   validarIdBoleta,
   validar,
+  autorizarAccesoBoleta,
   boletasController.obtenerBoletaPorId
 );
 
@@ -473,6 +491,9 @@ router.get(
  *     tags: [Boletas]
  *     summary: Vende una boleta
  *     description: >
+ *       Cuando compra un asistente, el asistenteId del cuerpo se ignora y
+ *       la boleta sale a nombre del asistente de su cuenta, resuelto desde
+ *       el token. La taquilla y la administración sí lo indican.
  *       La boleta nace reservada, con el precio calculado por la API y un
  *       código generado automáticamente.
  *     requestBody:
@@ -521,7 +542,9 @@ router.get(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       403:
- *         description: El rol autenticado no tiene permiso para esta operación
+ *         description: >
+ *           La cuenta autenticada no tiene un asistente asociado, así que
+ *           no hay a nombre de quién emitir
  *         content:
  *           application/json:
  *             schema:
@@ -686,7 +709,9 @@ router.put(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       403:
- *         description: El rol autenticado no tiene permiso para esta operación
+ *         description: >
+ *           La boleta no es de quien la pide, o su dueño intentó marcarla
+ *           como usada: eso queda para la taquilla y la administración
  *         content:
  *           application/json:
  *             schema:
@@ -699,6 +724,7 @@ router.patch(
   validarIdBoleta,
   validarEstadoBoleta,
   validar,
+  autorizarCambioEstadoBoleta,
   boletasController.cambiarEstadoBoleta
 );
 

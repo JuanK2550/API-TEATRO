@@ -159,13 +159,18 @@ const principal = async () => {
         ? null
         : "mensaje inesperado"
   );
+  // Desde el 6C una cuenta sin datos de asistente no recibe una lista vacía
+  // sino un 403: la ruta pide una condición que esa cuenta todavía no cumple.
   await comprobar(
-    "Sin asistente, sus boletas son un array vacío",
+    "Sin asistente, no llega a sus boletas",
     "GET",
     "/api/boletas/mias",
     undefined,
-    200,
-    (d) => (Array.isArray(d) && d.length === 0 ? null : "no devolvió un array vacío")
+    403,
+    (d) =>
+      d.mensaje === "El usuario no tiene un asistente asociado"
+        ? null
+        : "mensaje inesperado"
   );
 
   // ========================================
@@ -216,11 +221,26 @@ const principal = async () => {
   grupo("Mass Assignment");
   tokenActual = segunda.token;
 
+  // Desde el 6C el usuarioId sí está declarado en el validador, así que ya no
+  // se descarta en silencio: llega al controlador y se rechaza con 403. El
+  // campo id sigue sin declararse y lo descarta matchedData.
   await comprobar(
-    "Descarta el usuarioId enviado por el cliente",
+    "Rechaza el usuarioId enviado por el cliente",
     "POST",
     "/api/asistentes/mio",
-    { ...datosDe("segunda", documentoB), usuarioId: 9999, id: 777 },
+    { ...datosDe("segunda", documentoB), usuarioId: 9999 },
+    403,
+    (d) =>
+      d.mensaje === "Solo un administrador puede asociar un asistente a una cuenta"
+        ? null
+        : "mensaje inesperado"
+  );
+
+  await comprobar(
+    "Descarta el id enviado y liga el asistente al usuario del token",
+    "POST",
+    "/api/asistentes/mio",
+    { ...datosDe("segunda", documentoB), id: 777 },
     201,
     (d) => {
       if (d.asistente.usuarioId !== segunda.usuario.id) {
@@ -312,8 +332,40 @@ const principal = async () => {
   // El vínculo sobrevive a las actualizaciones
   // ========================================
   grupo("Actualizaciones");
-  // PUT, PATCH y la consulta de un asistente por id son de administrador
-  // desde el bloque 6: el asistente ya no puede editarse a sí mismo por ahí.
+  // El asistente vuelve a editarse a sí mismo, ahora por PATCH /mio: sin id en
+  // la dirección, con la identidad resuelta desde el token. PUT y PATCH por id
+  // siguen siendo del administrador.
+  tokenActual = primera.token;
+
+  await comprobar(
+    "El asistente edita su propio perfil y conserva el usuarioId",
+    "PATCH",
+    "/api/asistentes/mio",
+    { telefono: "3005556677" },
+    200,
+    (d) =>
+      d.asistente.telefono === "3005556677" &&
+      d.asistente.usuarioId === primera.usuario.id
+        ? null
+        : "el PATCH propio perdió el teléfono o el vínculo"
+  );
+
+  await comprobar(
+    "Por su propio perfil no puede reasignarse a otra cuenta",
+    "PATCH",
+    "/api/asistentes/mio",
+    { usuarioId: segunda.usuario.id },
+    403
+  );
+
+  await comprobar(
+    "Y sigue sin poder editar a otra persona por su id",
+    "PATCH",
+    `/api/asistentes/${creado.asistente.id}`,
+    { telefono: "3001112233" },
+    403
+  );
+
   tokenActual = tokenAdministrador;
 
   await comprobar(

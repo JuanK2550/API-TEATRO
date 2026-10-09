@@ -82,6 +82,15 @@ const router = express.Router();
  *           format: date
  *           description: Formato YYYY-MM-DD, no puede estar en el futuro
  *           example: "1995-03-14"
+ *         usuarioId:
+ *           type: integer
+ *           minimum: 1
+ *           description: >
+ *             Vínculo con una cuenta de usuario. Opcional y **solo lo puede
+ *             enviar un administrador**: cualquier otro rol recibe 403. La
+ *             cuenta debe existir y tener el rol asistente, y no puede estar
+ *             ya asociada a otro asistente.
+ *           example: 4
  *     AsistenteParcial:
  *       type: object
  *       description: Al menos un campo. Los no enviados conservan su valor.
@@ -98,6 +107,15 @@ const router = express.Router();
  *         fechaNacimiento:
  *           type: string
  *           format: date
+ *         usuarioId:
+ *           type: integer
+ *           minimum: 1
+ *           description: >
+ *             Vínculo con una cuenta de usuario. Opcional y **solo lo puede
+ *             enviar un administrador**: cualquier otro rol recibe 403. La
+ *             cuenta debe existir y tener el rol asistente, y no puede estar
+ *             ya asociada a otro asistente.
+ *           example: 4
  *     RespuestaAsistente:
  *       type: object
  *       properties:
@@ -192,7 +210,7 @@ router.get(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       403:
- *         description: API Key deshabilitada
+ *         description: El rol autenticado no es asistente
  *         content:
  *           application/json:
  *             schema:
@@ -264,7 +282,7 @@ router.get(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       403:
- *         description: API Key deshabilitada
+ *         description: El rol autenticado no es asistente, o se intentó enviar usuarioId
  *         content:
  *           application/json:
  *             schema:
@@ -295,6 +313,89 @@ router.post(
   validarCreacionAsistente,
   validar,
   asistentesController.crearMiAsistente
+);
+
+// ========================================
+// PATCH /api/asistentes/mio
+// ========================================
+/**
+ * @openapi
+ * /api/asistentes/mio:
+ *   patch:
+ *     tags: [Asistentes]
+ *     summary: Actualiza los datos de asistente de la cuenta autenticada
+ *     description: >
+ *       El asistente edita su propio perfil. **No hay id en la dirección**: la
+ *       identidad sale del token, así que no existe ningún número que cambiar
+ *       para editar a otra persona. El campo usuarioId no se puede enviar por
+ *       aquí: es el vínculo con la cuenta y solo lo asigna un administrador,
+ *       así que enviarlo responde 403.
+ *     security:
+ *       - ApiKeyAuth: []
+ *         BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: "#/components/schemas/AsistenteParcial"
+ *     responses:
+ *       200:
+ *         description: Asistente actualizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/RespuestaAsistente"
+ *       400:
+ *         description: Datos de entrada inválidos, o cuerpo sin ningún campo
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ErrorValidacion"
+ *       401:
+ *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol no es asistente, o se intentó enviar usuarioId
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       404:
+ *         description: La cuenta todavía no tiene datos de asistente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       409:
+ *         description: Ese documento ya está registrado en el teatro
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       429:
+ *         description: Demasiadas peticiones
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       500:
+ *         description: Error interno del servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ */
+router.patch(
+  "/mio",
+  autenticarJWT,
+  autorizarRoles("asistente"),
+  validarAsistenteParcial,
+  validar,
+  asistentesController.actualizarMiAsistente
 );
 
 // ========================================
@@ -413,7 +514,9 @@ router.get(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       403:
- *         description: El rol autenticado no tiene permiso para esta operación
+ *         description: >
+ *           El rol autenticado no tiene permiso para esta operación, o
+ *           un rol distinto de administrador intentó enviar usuarioId
  *         content:
  *           application/json:
  *             schema:
@@ -491,7 +594,9 @@ router.post(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       403:
- *         description: El rol autenticado no tiene permiso para esta operación
+ *         description: >
+ *           El rol autenticado no tiene permiso para esta operación, o
+ *           un rol distinto de administrador intentó enviar usuarioId
  *         content:
  *           application/json:
  *             schema:
@@ -570,7 +675,9 @@ router.put(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       403:
- *         description: El rol autenticado no tiene permiso para esta operación
+ *         description: >
+ *           El rol autenticado no tiene permiso para esta operación, o
+ *           un rol distinto de administrador intentó enviar usuarioId
  *         content:
  *           application/json:
  *             schema:
