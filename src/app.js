@@ -25,6 +25,7 @@ const funcionesRoutes = require("./routes/funciones.routes");
 const boletasRoutes = require("./routes/boletas.routes");
 const seguridadRoutes = require("./routes/seguridad.routes");
 const authRoutes = require("./routes/auth.routes");
+const usuariosRoutes = require("./routes/usuarios.routes");
 
 const usuariosService = require("./services/usuarios.service");
 
@@ -99,6 +100,7 @@ app.use("/api/funciones", funcionesRoutes);
 app.use("/api/boletas", boletasRoutes);
 app.use("/api/seguridad", seguridadRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/usuarios", usuariosRoutes);
 
 // ========================================
 // Sala: el frontend público

@@ -54,7 +54,13 @@ const validarLogin = [
 // ========================================
 // Exportaciones
 // ========================================
+// Las tres reglas se exportan porque el validador de usuarios
+// administrativos pide exactamente las mismas: una sola definición
+// evita que el registro y la creación administrativa se separen.
 module.exports = {
+  reglaNombre,
+  reglaEmail,
+  reglaPassword,
   validarRegistro,
   validarLogin
 };

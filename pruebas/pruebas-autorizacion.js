@@ -339,6 +339,281 @@ const principal = async () => {
   );
 
   // ========================================
+  // Crear usuarios administrativos
+  // ========================================
+  grupo("Usuarios administrativos");
+
+  const correoTaquilla = `taquilla${marca}@teatro.com`;
+  const CLAVE_NUEVA = "Clave-Larga-Taquilla-2026";
+
+  const taquillaCreada = await comprobar(
+    "El administrador crea una cuenta de taquilla",
+    "POST",
+    "/api/usuarios",
+    {
+      nombre: "Taquilla de prueba",
+      email: correoTaquilla,
+      password: CLAVE_NUEVA,
+      rol: "taquilla"
+    },
+    tokenAdministrador,
+    201,
+    (d) => {
+      if (!d || !d.usuario) return "la respuesta no trae el usuario";
+      if (d.usuario.rol !== "taquilla") return `el rol es ${d.usuario.rol}`;
+      if (d.usuario.activo !== true) return "no nació activa";
+      if ("passwordHash" in d.usuario) return "la respuesta incluye el passwordHash";
+      return null;
+    }
+  );
+
+  const entradaTaquilla = await comprobar(
+    "Esa taquilla puede entrar y su token lleva el rol taquilla",
+    "POST",
+    "/api/auth/login",
+    { email: correoTaquilla, password: CLAVE_NUEVA },
+    null,
+    200,
+    (d) =>
+      d && d.token && rolDelToken(d.token) === "taquilla"
+        ? null
+        : `el rol del token es ${d && d.token && rolDelToken(d.token)}`
+  );
+  const tokenTaquilla = entradaTaquilla && entradaTaquilla.token;
+
+  await comprobar(
+    "El administrador crea otro administrador",
+    "POST",
+    "/api/usuarios",
+    {
+      nombre: "Segundo administrador",
+      email: `administrador${marca}@teatro.com`,
+      password: "Clave-Larga-Administrador-2026",
+      rol: "administrador"
+    },
+    tokenAdministrador,
+    201,
+    (d) =>
+      d && d.usuario && d.usuario.rol === "administrador"
+        ? null
+        : `el rol es ${d && d.usuario && d.usuario.rol}`
+  );
+
+  await comprobar(
+    "La taquilla no crea usuarios",
+    "POST",
+    "/api/usuarios",
+    {
+      nombre: "Taquilla creada por taquilla",
+      email: `nadie${marca}@teatro.com`,
+      password: "Clave-Larga-Nadie-2026",
+      rol: "taquilla"
+    },
+    tokenTaquilla,
+    403,
+    (d) =>
+      d && d.mensaje === MENSAJE_403
+        ? null
+        : `el mensaje del 403 es "${d && d.mensaje}"`
+  );
+
+  await comprobar(
+    "Un asistente no se asciende a administrador",
+    "POST",
+    "/api/usuarios",
+    {
+      nombre: "Asistente ambicioso",
+      email: `ambicioso${marca}@teatro.com`,
+      password: "Clave-Larga-Ambicioso-2026",
+      rol: "administrador"
+    },
+    tokenAsistente,
+    403
+  );
+
+  await comprobar(
+    "Crear un usuario sin token es 401",
+    "POST",
+    "/api/usuarios",
+    {
+      nombre: "Sin credenciales",
+      email: `sintoken${marca}@teatro.com`,
+      password: "Clave-Larga-Sin-Token-2026",
+      rol: "taquilla"
+    },
+    null,
+    401
+  );
+
+  // ========================================
+  // La lista blanca del rol
+  // ========================================
+  grupo("Lista blanca del rol");
+
+  for (const rolInvalido of ["superadmin", "asistente", "ADMINISTRADOR", ""]) {
+    await comprobar(
+      `El rol "${rolInvalido}" se rechaza con 400`,
+      "POST",
+      "/api/usuarios",
+      {
+        nombre: "Rol fuera de la lista",
+        email: `rol${rolInvalido || "vacio"}${marca}@teatro.com`,
+        password: "Clave-Larga-Rol-2026",
+        rol: rolInvalido
+      },
+      tokenAdministrador,
+      400
+    );
+  }
+
+  await comprobar(
+    "Sin rol en el cuerpo también es 400",
+    "POST",
+    "/api/usuarios",
+    {
+      nombre: "Sin rol",
+      email: `sinrol${marca}@teatro.com`,
+      password: "Clave-Larga-Sin-Rol-2026"
+    },
+    tokenAdministrador,
+    400
+  );
+
+  // ========================================
+  // Mass Assignment en la creación de usuarios
+  // ========================================
+  grupo("Mass Assignment");
+
+  const correoColado = `colado${marca}@teatro.com`;
+  const CLAVE_COLADO = "Clave-Larga-Colado-2026";
+
+  const colado = await comprobar(
+    "Los campos del servidor se descartan aunque lleguen en el cuerpo",
+    "POST",
+    "/api/usuarios",
+    {
+      nombre: "Usuario con campos colados",
+      email: correoColado,
+      password: CLAVE_COLADO,
+      rol: "taquilla",
+      id: 9999,
+      activo: false,
+      passwordHash: "hash-falso",
+      esSuperAdmin: true
+    },
+    tokenAdministrador,
+    201,
+    (d) => {
+      const u = d && d.usuario;
+      if (!u) return "la respuesta no trae el usuario";
+      if (u.id === 9999) return "el id lo fijó el cliente";
+      if (u.activo !== true) return "el cliente consiguió crearlo inactivo";
+      if ("passwordHash" in u) return "la respuesta incluye el passwordHash";
+      if ("esSuperAdmin" in u) return "el campo inventado llegó a los datos";
+      if (u.rol !== "taquilla") return `el rol es ${u.rol}`;
+      return null;
+    }
+  );
+
+  afirmar(
+    "El id del usuario colado lo puso el servidor",
+    colado && colado.usuario && typeof colado.usuario.id === "number"
+      ? null
+      : "no se obtuvo un id numérico"
+  );
+
+  await comprobar(
+    "El hash falso no sustituyó a la contraseña real: el login funciona",
+    "POST",
+    "/api/auth/login",
+    { email: correoColado, password: CLAVE_COLADO },
+    null,
+    200,
+    (d) =>
+      d && d.token && rolDelToken(d.token) === "taquilla"
+        ? null
+        : "no se pudo entrar con la contraseña real"
+  );
+
+  await comprobar(
+    "El hash falso tampoco sirve como contraseña",
+    "POST",
+    "/api/auth/login",
+    { email: correoColado, password: "hash-falso" },
+    null,
+    401
+  );
+
+  // Si el id 9999 hubiera entrado, el siguiente usuario sería el 10000:
+  // los ids se generan como el mayor existente más uno. Es la prueba de caja
+  // negra de que el id del cuerpo se descartó de verdad, y no solo que la
+  // respuesta no lo mostraba.
+  const siguiente = await comprobar(
+    "El id colado no desplazó el contador: el siguiente usuario sigue la serie",
+    "POST",
+    "/api/usuarios",
+    {
+      nombre: "Usuario siguiente",
+      email: `siguiente${marca}@teatro.com`,
+      password: "Clave-Larga-Siguiente-2026",
+      rol: "taquilla"
+    },
+    tokenAdministrador,
+    201,
+    (d) => {
+      const esperado = colado && colado.usuario && colado.usuario.id + 1;
+      return d && d.usuario && d.usuario.id === esperado
+        ? null
+        : `esperaba el id ${esperado}, recibió ${d && d.usuario && d.usuario.id}`;
+    }
+  );
+
+  afirmar(
+    "Ese id está muy lejos del 9999 que mandó el cliente",
+    siguiente && siguiente.usuario && siguiente.usuario.id < 100
+      ? null
+      : `el id es ${siguiente && siguiente.usuario && siguiente.usuario.id}`
+  );
+
+  // ========================================
+  // Unicidad del correo
+  // ========================================
+  grupo("Unicidad del correo");
+
+  await comprobar(
+    "Un correo ya registrado es 409",
+    "POST",
+    "/api/usuarios",
+    {
+      nombre: "Taquilla repetida",
+      email: correoTaquilla,
+      password: "Clave-Larga-Repetida-2026",
+      rol: "taquilla"
+    },
+    tokenAdministrador,
+    409
+  );
+
+  await comprobar(
+    "Da igual si el correo se repite en mayúsculas",
+    "POST",
+    "/api/usuarios",
+    {
+      nombre: "Taquilla repetida en mayúsculas",
+      email: correoTaquilla.toUpperCase(),
+      password: "Clave-Larga-Repetida-2026",
+      rol: "taquilla"
+    },
+    tokenAdministrador,
+    409
+  );
+
+  afirmar(
+    "La cuenta de taquilla original sigue existiendo tras los 409",
+    taquillaCreada && taquillaCreada.usuario ? null : "no se creó la taquilla"
+  );
+
+  // ========================================
   // Borrado del evento de prueba
   // ========================================
   grupo("Borrado");

@@ -69,6 +69,11 @@ const definicion = {
     {
       name: "Autenticación",
       description: "Registro e inicio de sesión de usuarios"
+    },
+    {
+      name: "Usuarios",
+      description:
+        "Creación de cuentas de taquilla y de administración. Reservada al rol administrador: el registro público solo crea asistentes."
     }
   ],
   components: {
