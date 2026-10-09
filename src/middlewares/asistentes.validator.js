@@ -72,6 +72,15 @@ const reglaFechaNacimiento = () =>
       "La fecha de nacimiento debe tener el formato YYYY-MM-DD y no puede estar en el futuro"
     );
 
+// El vínculo con una cuenta de usuario. Es el único campo del recurso que no
+// describe a la persona sino su acceso, así que solo el administrador lo puede
+// enviar: el controlador lo comprueba y responde 403 a cualquier otro rol.
+const reglaUsuarioId = () =>
+  body("usuarioId")
+    .isInt({ min: 1 })
+    .withMessage("El usuarioId debe ser un número entero mayor o igual a 1")
+    .toInt();
+
 // ========================================
 // Validar id
 // ========================================
@@ -90,7 +99,8 @@ const validarCreacionAsistente = [
   reglaDocumento(),
   reglaEmail(),
   reglaTelefono(),
-  reglaFechaNacimiento()
+  reglaFechaNacimiento(),
+  reglaUsuarioId().optional()
 ];
 
 // ========================================
@@ -101,7 +111,8 @@ const validarActualizacionAsistente = [
   reglaDocumento(),
   reglaEmail(),
   reglaTelefono(),
-  reglaFechaNacimiento()
+  reglaFechaNacimiento(),
+  reglaUsuarioId().optional()
 ];
 
 // ========================================
@@ -112,7 +123,8 @@ const validarAsistenteParcial = [
   reglaDocumento().optional(),
   reglaEmail().optional(),
   reglaTelefono().optional(),
-  reglaFechaNacimiento().optional()
+  reglaFechaNacimiento().optional(),
+  reglaUsuarioId().optional()
 ];
 
 // ========================================

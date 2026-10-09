@@ -204,7 +204,20 @@ export const crearMiAsistente = async (datos) => {
   return respuesta.asistente;
 };
 
-export const misBoletas = () => pedir("/boletas/mias");
+// Una cuenta que todavía no ha comprado no tiene asistente asociado, y la API
+// responde 403 porque la ruta pide una condición que esa cuenta no cumple. Para
+// la Sala eso no es un error: es la lista vacía. Se distingue por el mensaje,
+// para no confundirlo con el 403 de un rol que no le corresponde.
+const SIN_ASISTENTE = "El usuario no tiene un asistente asociado";
+
+export const misBoletas = async () => {
+  try {
+    return await pedir("/boletas/mias");
+  } catch (error) {
+    if (error.status === 403 && error.message === SIN_ASISTENTE) return [];
+    throw error;
+  }
+};
 
 // El cliente nunca manda precio, codigo ni estado: los pone el servidor.
 export const venderBoleta = (datos) =>

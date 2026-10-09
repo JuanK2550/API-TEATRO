@@ -175,12 +175,17 @@ const obtenerBoletasPorAsistente = (req, res) => {
 // Las boletas de la cuenta autenticada
 // ========================================
 // El asistente sale del token, no de la dirección: por aquí nadie puede leer
-// las boletas de otra persona cambiando un número. Si la cuenta todavía no
-// tiene datos de asistente, no tiene boletas y devuelve un array vacío.
+// las boletas de otra persona cambiando un número. Una cuenta sin datos de
+// asistente no tiene boletas que mirar, y eso es un 403 y no un array vacío:
+// la ruta pide una condición que esa cuenta todavía no cumple.
 const obtenerMisBoletas = (req, res) => {
   const asistente = asistentesService.buscarAsistentePorUsuario(req.usuario.id);
 
-  if (!asistente) return res.status(200).json([]);
+  if (!asistente) {
+    return res
+      .status(403)
+      .json({ mensaje: "El usuario no tiene un asistente asociado" });
+  }
 
   res.status(200).json(boletasService.obtenerBoletasPorAsistente(asistente.id));
 };
@@ -217,6 +222,27 @@ const obtenerBoletaPorId = (req, res) => {
 // ========================================
 const crearBoleta = (req, res) => {
   const datos = leerDatos(req);
+
+  // ========================================
+  // A nombre de quién se emite
+  // Un asistente solo compra para sí mismo
+  // ========================================
+  // El asistenteId del cuerpo se ignora cuando compra un asistente: el suyo
+  // sale del token. Sin esto, cambiar un número en la petición bastaría para
+  // emitir una boleta a nombre de otra persona y gastarle su límite de seis.
+  // La taquilla y la administración sí lo indican: venden para quien tienen
+  // delante.
+  if (req.usuario.rol === "asistente") {
+    const propio = asistentesService.buscarAsistentePorUsuario(req.usuario.id);
+
+    if (!propio) {
+      return res
+        .status(403)
+        .json({ mensaje: "El usuario no tiene un asistente asociado" });
+    }
+
+    datos.asistenteId = propio.id;
+  }
 
   const problemaRelaciones = validarRelacionesBoleta(datos);
   if (problemaRelaciones) {
