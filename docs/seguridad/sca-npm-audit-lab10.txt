@@ -1,0 +1,36 @@
+========================================
+SCA - npm audit - Laboratorio 10
+Fecha: 2026-10-09 10:18
+========================================
+
+--- npm audit (todas las dependencias, incluidas las de desarrollo) ---
+# npm audit report
+
+braces  *
+Severity: high
+braces vulnerable to stack-exhaustion denial of service through deeply nested patterns - https://github.com/advisories/GHSA-vfj7-8cjw-p6xm
+fix available via `npm audit fix --force`
+Will install nodemon@1.14.10, which is a breaking change
+node_modules/braces
+  chokidar  2.0.0 - 3.6.0
+  Depends on vulnerable versions of braces
+  node_modules/chokidar
+    nodemon  0.0.0-development || >=1.14.11
+    Depends on vulnerable versions of chokidar
+    node_modules/nodemon
+
+3 high severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+--- Resumen en JSON ---
+vulnerabilidades: {"info":0,"low":0,"moderate":0,"high":3,"critical":0,"total":3}
+dependencias    : {"prod":136,"dev":23,"optional":1,"peer":1,"peerOptional":0,"total":159}
+
+--- npm audit --omit=dev (solo lo que corre en produccion) ---
+found 0 vulnerabilities
+
+--- Resumen en JSON, sin desarrollo ---
+vulnerabilidades: {"info":0,"low":0,"moderate":0,"high":0,"critical":0,"total":0}
+dependencias    : {"prod":136,"dev":23,"optional":1,"peer":1,"peerOptional":0,"total":159}

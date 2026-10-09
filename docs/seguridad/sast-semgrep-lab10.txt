@@ -1,0 +1,51 @@
+========================================
+SAST - Semgrep - Laboratorio 10 (autorizacion, RBAC, IDOR/BOLA)
+Fecha: 2026-10-09 10:25
+Reglas: p/javascript, p/nodejs, p/owasp-top-ten
+Objetivo: src/ y frontend/
+========================================
+
+--- Comando ---
+semgrep --config p/javascript --config p/nodejs --config p/owasp-top-ten src/ frontend/
+
+Nota de ejecucion: en este equipo Smart App Control de Windows bloquea el
+binario semgrep-core.exe (evento 3077 de CodeIntegrity). El atajo por el
+punto de entrada de Python que servia en laboratorios anteriores ya no
+basta, porque el bloqueo es sobre el binario nativo y no sobre el
+lanzador. El escaneo se hizo con la imagen oficial, que corre el mismo
+analisis en Linux:
+
+  docker run --rm -v "$(pwd):/src" -w /src semgrep/semgrep \
+    semgrep --config p/javascript --config p/nodejs --config p/owasp-top-ten src/ frontend/
+
+--- Salida ---
+               
+               
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 66 files tracked by git with 563 Code rules:
+                                                                                                                        
+  Language      Rules   Files          Origin      Rules                                                                
+ ─────────────────────────────        ───────────────────                                                               
+  <multilang>       5      66          Community     563                                                                
+  js               68      57                                                                                           
+  html              1       1                                                                                           
+                                                                                                                        
+                
+                
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ Scan completed successfully.
+ • Findings: 0 (0 blocking)
+ • Rules run: 74
+ • Targets scanned: 66
+ • Parsed lines: ~100.0%
+ • Scan was limited to files tracked by git
+ • For a detailed list of skipped files and lines, run semgrep with the --verbose flag
+Ran 74 rules on 66 files: 0 findings.
+(need more rules? `semgrep login` for additional free Semgrep Registry rules)
+
+If Semgrep missed a finding, please send us feedback to let us know!
+See https://semgrep.dev/docs/reporting-false-negatives/

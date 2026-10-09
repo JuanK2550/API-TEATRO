@@ -122,6 +122,8 @@ distingue las canceladas.
 | API Key | Cabecera `X-API-Key` obligatoria en todo `/api`; tres clientes, claves guardadas como hash SHA-256 |
 | Contraseñas | Usuarios con bcrypt, cost 12 y sal por contraseña; nunca se guardan ni se devuelven en claro |
 | JWT | Token firmado con HS256 y caducidad; algoritmo fijo al firmar y al verificar |
+| Autorización por rol | `autorizarRoles` en 36 endpoints: 401 sin sesión, 403 si el rol no corresponde |
+| Propiedad del dato | Tres guardas en `propiedad.middleware.js`: un asistente solo ve y toca lo suyo |
 | helmet | Cabeceras de seguridad en todas las respuestas |
 | `x-powered-by` | Deshabilitado con `app.disable("x-powered-by")` |
 | CORS | Origen único desde `ALLOWED_ORIGIN`; métodos GET, POST, PUT, PATCH, DELETE |
@@ -280,6 +282,204 @@ usado desde dos aplicaciones distintas devuelve el mismo `usuario` y distinto
 | Sin `Bearer` delante, u otro esquema | 401 | Formato de token inválido |
 | Token caducado | 401 | Token expirado |
 | Firma incorrecta, payload alterado o `alg: none` | 401 | Token inválido |
+
+### Autorización: roles y permisos
+
+El token dice quién es la persona y qué rol tiene. La autorización decide qué
+puede hacer con él, y son **dos preguntas distintas**:
+
+1. **¿Puede tu rol hacer esta operación?** La responde `autorizarRoles`.
+2. **¿Puedes hacerla sobre este registro?** La responden las guardas de
+   propiedad de `src/middlewares/propiedad.middleware.js`.
+
+Pasar solo la primera es el agujero que la OWASP llama **BOLA**: un asistente
+tiene permiso para leer boletas, pero no las de otra persona.
+
+El orden de cada ruta protegida es siempre el mismo, y no es intercambiable:
+
+```
+autenticarJWT -> autorizarRoles -> validadores -> validar -> guarda de propiedad -> controller
+```
+
+`autenticarJWT` va primero porque es quien deja `req.usuario`: al revés, el
+control de rol se ejecuta sin saber quién pregunta y devuelve 401 donde debía
+devolver 403. Y la guarda de propiedad va después de `validar` porque lee el
+cuerpo con `matchedData`, que solo tiene contenido cuando la validación corrió.
+
+| Código | Significa |
+| ------ | --------- |
+| 401 | No sé quién eres. Falta el token, es inválido o la API Key es incorrecta |
+| 403 | Sé quién eres y esto no te corresponde |
+
+#### Quién puede hacer qué
+
+Son 48 endpoints en 26 rutas; 36 exigen sesión.
+
+| Método | Ruta | Quién |
+| ------ | ---- | ----- |
+| GET | `/api/eventos`, `/api/localidades`, `/api/funciones` y sus consultas | **público** |
+| POST, PUT, PATCH, DELETE | eventos, localidades y funciones | administrador |
+| GET | `/api/asistentes`, `/api/asistentes/:id` | administrador, taquilla |
+| POST | `/api/asistentes` | administrador, taquilla |
+| PUT, PATCH, DELETE | `/api/asistentes/:id` | administrador |
+| GET, POST, PATCH | `/api/asistentes/mio` | asistente |
+| GET | `/api/boletas` | administrador |
+| GET | `/api/boletas/mias` | asistente |
+| GET | `/api/boletas/asistente/:asistenteId` | administrador, taquilla, asistente **si es el suyo** |
+| GET | `/api/boletas/funcion/:funcionId` | administrador, taquilla |
+| GET | `/api/boletas/:id` | administrador, taquilla, asistente **si es suya** |
+| POST | `/api/boletas` | administrador, taquilla, asistente |
+| PUT, PATCH | `/api/boletas/:id` | administrador, taquilla |
+| PATCH | `/api/boletas/:id/estado` | administrador, taquilla, asistente **si es suya** |
+| DELETE | `/api/boletas/:id` | administrador |
+| POST | `/api/usuarios` | administrador |
+| POST | `/api/auth/registro`, `/api/auth/login` | público |
+| GET | `/api/auth/perfil` | cualquier sesión |
+
+**La cartelera sigue pública** a propósito: un teatro publica su programación.
+Pedir sesión para consultar un cartel no añadiría seguridad, solo estorbaría.
+
+#### El asistente solo ve y toca lo suyo
+
+Las tres guardas comparten una sola pieza, y es lo que de verdad cierra el
+IDOR:
+
+```js
+const asistenteDelToken = (req) =>
+  asistentesService.buscarAsistentePorUsuario(req.usuario.id);
+```
+
+El asistente propio se resuelve **desde `req.usuario.id`**, que lo puso
+`autenticarJWT` al verificar la firma. Nunca desde el cuerpo, la dirección o
+una cabecera: el id del token viene firmado por el servidor y cualquier otro id
+lo escribe el cliente.
+
+| Guarda | Ruta | Qué decide |
+| ------ | ---- | ---------- |
+| `autorizarAsistentePropio` | `GET /api/boletas/asistente/:asistenteId` | El asistente solo si el id es el suyo |
+| `autorizarAccesoBoleta` | `GET /api/boletas/:id` | El asistente solo si la boleta es suya |
+| `autorizarCambioEstadoBoleta` | `PATCH /api/boletas/:id/estado` | Igual, y limita al dueño a `pagada` y `cancelada` |
+
+Además, **`POST /api/boletas` ignora el `asistenteId` del cuerpo cuando compra
+un asistente**: la boleta sale a nombre del asistente de su cuenta. Sin esto,
+cambiar un número bastaría para emitir una boleta a nombre de otra persona y
+gastarle su límite de seis. La taquilla y la administración sí lo indican,
+porque venden para quien tienen delante.
+
+Un asistente pidiendo un `asistenteId` que no existe recibe **403, no 404**. Si
+el código dependiera de que el id existiera, la diferencia entre las dos
+respuestas diría cuántos asistentes hay registrados.
+
+#### Estados de una boleta, por rol
+
+| Estado | Quién lo puede pedir |
+| ------ | -------------------- |
+| `pagada` | el dueño, taquilla, administrador |
+| `cancelada` | el dueño, taquilla, administrador |
+| `usada` | taquilla, administrador |
+
+Pagar y cancelar son del dueño: el pago lo hace quien compra y la cancelación
+es un derecho de quien compró. Marcar `usada` no, porque eso ocurre cuando el
+público entra a la sala y lo hace quien revisa en la puerta.
+
+**El permiso no deroga la máquina de estados.** Que la taquilla pueda pedir
+`usada` no significa que pueda: sigue haciendo falta que la función esté
+`en_curso`, y si no lo está recibe 409, no 403. Son dos controles distintos y
+se distinguen en el código de respuesta.
+
+### El administrador inicial
+
+Crear administradores es una operación administrativa, y las operaciones
+administrativas exigen un administrador. Con la base de datos vacía no hay
+ninguno. El registro público no sirve, porque fuerza el rol `asistente`, y
+abrirle una excepción —"si no hay usuarios, el primero es administrador"—
+sería regalar el sistema a quien llegue primero.
+
+Se rompe **sembrando** el primer administrador desde el entorno. Las variables
+van en el `.env`:
+
+| Variable | Para qué |
+| -------- | -------- |
+| `ADMIN_NOMBRE` | Nombre de la cuenta sembrada |
+| `ADMIN_EMAIL` | Correo con el que entra |
+| `ADMIN_PASSWORD` | Su contraseña |
+
+`crearAdministradorInicial()` corre **antes** de `app.listen`. Si la cuenta ya
+existe la devuelve sin tocarla, así que reiniciar no duplica nada ni reescribe
+la contraseña. Si faltan las variables, avisa y el servidor arranca igual.
+
+La contraseña **vive solo en el `.env`**, que está en `.gitignore`. En
+`.env.example` va el marcador `REEMPLAZAR_CON_PASSWORD_SEGURO`. Y **no se
+imprime**: el log dice `Administrador inicial creado` y nada más. Un registro
+con la contraseña del administrador es tan grave como escribirla en el código,
+porque los registros se copian, se comparten para pedir ayuda y se suben a
+sistemas de monitoreo.
+
+### Gestión de usuarios · `POST /api/usuarios`
+
+Reservada al rol **administrador**. Es el único camino por el que se otorgan
+los roles `taquilla` y `administrador`: el registro público crea siempre
+asistentes.
+
+```json
+{
+  "nombre": "Taquilla Teatro",
+  "email": "taquilla@teatro.com",
+  "password": "ClaveSegura2026!",
+  "rol": "taquilla"
+}
+```
+
+| Situación | Código | Mensaje |
+| --------- | ------ | ------- |
+| Usuario creado | 201 | Usuario creado correctamente |
+| Rol fuera de la lista blanca | 400 | Datos de entrada inválidos |
+| Sin token, o token inválido | 401 | Token de autenticación requerido |
+| El rol no es administrador | 403 | No tiene permisos para realizar esta operación |
+| El correo ya está registrado | 409 | Ya existe un usuario con ese correo electrónico |
+
+El `rol` llega en el cuerpo pero pasa por una **lista blanca de dos valores**,
+`["taquilla", "administrador"]`. Cualquier otro es 400, incluidos `asistente`
+—que se obtiene registrándose— y `superadmin`, que no existe.
+
+`crearUsuarioAdministrativo()` va **aparte** de `crearUsuario()`, y no es la
+misma función con el rol opcional. Si lo fuera, el día que alguien la llamara
+desde una ruta nueva sin limpiar el cuerpo, el rol del cliente entraría: un
+olvido se convertiría en una escalada de privilegios. Separadas, el registro
+público **no tiene** forma de asignar un rol.
+
+`id`, `activo` y `passwordHash` no se declaran en el validador, así que
+`matchedData` los descarta, y el service arma el usuario campo por campo.
+
+### El `usuarioId` solo lo asigna el administrador
+
+El vínculo entre una cuenta y un asistente es el campo `usuarioId`. Lo puede
+enviar **solo el administrador**, en `POST /api/asistentes`, `PUT` y `PATCH`.
+
+| Situación | Código |
+| --------- | ------ |
+| Un rol distinto de administrador lo envía | 403 |
+| El usuario no existe | 400 |
+| La cuenta no tiene el rol `asistente` | 409 |
+| La cuenta ya está asociada a otro asistente | 409 |
+
+**El 403 va antes del 400 y del 409.** Si se comprobara primero si el usuario
+existe, la taquilla podría enumerar ids probándolos uno por uno: el 400 ("no
+existe") y el 409 ("ya está asociado") son respuestas distintas entre sí, y
+esa diferencia ya es información. Primero se decide si el rol puede preguntar.
+
+Y el campo **da 403 en vez de ignorarse en silencio**, al contrario que el
+`rol` del registro. No es una contradicción: el `rol` no es parte del contrato
+del registro y no se declara, mientras que el `usuarioId` **sí** es un campo
+legítimo para el administrador. Descartarlo callando devolvería 201 mintiendo,
+diciendo "asistente creado correctamente" sin haber hecho el vínculo que se
+pidió. La regla: un campo que nadie puede fijar no se declara; un campo que
+solo algunos pueden fijar se declara y se controla por rol.
+
+`PATCH /api/asistentes/mio` deja que un asistente edite su propio perfil **sin
+id en la dirección**: la identidad sale del token, así que no hay ningún número
+que cambiar para editar a otra persona. Por esa ruta el `usuarioId` también da
+403, porque enviarlo sería intentar ligarse a otra cuenta.
 
 ## Frontend · La Sala
 
@@ -587,11 +787,24 @@ Los comandos se ejecutan desde la raíz del proyecto. El servidor queda en
 | `API_KEY_MOVIL` | sin valor | Clave del cliente Aplicación Móvil (deshabilitado) |
 | `JWT_SECRET` | sin valor | Clave con la que se firman y verifican los JWT |
 | `JWT_EXPIRES_IN` | `1h` | Cuánto dura un token |
+| `ADMIN_NOMBRE` | sin valor | Nombre del administrador que se siembra al arrancar |
+| `ADMIN_EMAIL` | sin valor | Su correo |
+| `ADMIN_PASSWORD` | sin valor | Su contraseña. **Solo vive aquí y nunca se imprime** |
 
 `.env` está en `.gitignore`; `.env.example` es la plantilla y nunca lleva las
 claves reales: solo trae marcadores. **Cada integrante genera su propio
-`JWT_SECRET` en su `.env`**, igual que sus API Keys. Las tres API Keys son
-obligatorias: sin ellas el servidor no arranca.
+`JWT_SECRET` en su `.env`**, igual que sus API Keys y la contraseña del
+administrador. Las tres API Keys son obligatorias: sin ellas el servidor no
+arranca.
+
+En `.env.example` las variables del administrador van así, con el marcador en
+lugar de la contraseña:
+
+```
+ADMIN_NOMBRE=Administrador Teatro
+ADMIN_EMAIL=admin@teatro.com
+ADMIN_PASSWORD=REEMPLAZAR_CON_PASSWORD_SEGURO
+```
 
 Genera cada API Key con:
 
@@ -604,6 +817,11 @@ Y el `JWT_SECRET`, más largo, con:
 ```bash
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 ```
+
+La contraseña del administrador se escribe a mano en el `.env` y no se comparte
+por ningún otro canal. Al arrancar, el servidor imprime `Administrador inicial
+creado` la primera vez y nada más: ni el correo ni la contraseña aparecen en el
+log.
 
 Para probar desde Swagger UI hay que pulsar **Authorize**, arriba a la derecha,
 y pegar una de las claves activas. Sin ese paso todos los endpoints responden
@@ -647,6 +865,8 @@ API_TEATRO/
 │   ├── pruebas-boletas.js
 │   ├── pruebas-limites.js
 │   ├── pruebas-cuenta.js
+│   ├── pruebas-autorizacion.js
+│   ├── sesion.js                 # API Key y token del administrador
 │   ├── verificar-a.js
 │   ├── verificar-b.js
 │   └── verificar-c.js
@@ -658,7 +878,8 @@ API_TEATRO/
     │   ├── boletas.controller.js
     │   ├── eventos.controller.js
     │   ├── funciones.controller.js
-    │   └── localidades.controller.js
+    │   ├── localidades.controller.js
+    │   └── usuarios.controller.js
     ├── data/
     │   ├── asistentes.js
     │   ├── boletas.js
@@ -679,6 +900,9 @@ API_TEATRO/
     │   ├── eventos.validator.js
     │   ├── funciones.validator.js
     │   ├── localidades.validator.js
+    │   ├── propiedad.middleware.js   # guardas de propiedad (IDOR/BOLA)
+    │   ├── roles.middleware.js       # autorizarRoles
+    │   ├── usuarios.validator.js
     │   └── validar.middleware.js
     ├── routes/
     │   ├── asistentes.routes.js
@@ -687,7 +911,8 @@ API_TEATRO/
     │   ├── eventos.routes.js
     │   ├── funciones.routes.js
     │   ├── localidades.routes.js
-    │   └── seguridad.routes.js
+    │   ├── seguridad.routes.js
+    │   └── usuarios.routes.js
     ├── services/
     │   ├── apiKeys.service.js
     │   ├── asistentes.service.js
@@ -707,8 +932,14 @@ no acceden a los datos; solo los services importan desde `src/data/`.
 
 ## Endpoints
 
-46 endpoints en 25 rutas. Swagger UI: <http://localhost:3000/api-docs> ·
-OpenAPI: <http://localhost:3000/openapi.json>
+48 endpoints en 26 rutas, con 37 schemas. 36 endpoints exigen sesión, y en
+Swagger cada uno lleva `ApiKeyAuth` y `BearerAuth` en el mismo objeto, porque
+hacen falta las dos credenciales a la vez. Swagger UI:
+<http://localhost:3000/api-docs> · OpenAPI:
+<http://localhost:3000/openapi.json>
+
+La columna **Quién** repite la tabla de
+[Autorización: roles y permisos](#autorización-roles-y-permisos).
 
 **Generales**
 
@@ -725,6 +956,7 @@ OpenAPI: <http://localhost:3000/openapi.json>
 | GET | `/api/asistentes` | Lista los asistentes |
 | GET | `/api/asistentes/mio` | Datos de asistente de la cuenta del token |
 | POST | `/api/asistentes/mio` | Los crea y los liga a esa cuenta |
+| PATCH | `/api/asistentes/mio` | El asistente edita su propio perfil, sin id en la dirección |
 | GET | `/api/asistentes/:id` | Obtiene un asistente |
 | POST | `/api/asistentes` | Crea un asistente |
 | PUT | `/api/asistentes/:id` | Reemplaza un asistente |
@@ -791,6 +1023,12 @@ OpenAPI: <http://localhost:3000/openapi.json>
 | ------ | ---- | ----------- |
 | GET | `/api/seguridad/cliente` | Devuelve el cliente dueño de la API Key enviada |
 
+**Usuarios**
+
+| Método | Ruta | Descripción |
+| ------ | ---- | ----------- |
+| POST | `/api/usuarios` | Crea una cuenta de `taquilla` o de `administrador`. Solo el administrador |
+
 **Autenticación**
 
 | Método | Ruta | Descripción |
@@ -814,6 +1052,7 @@ cada bloque:
 | [`informe-lab8.md`](docs/seguridad/informe-lab8.md) | Control del rol y escalada de privilegios |
 | [`informe-lab9.md`](docs/seguridad/informe-lab9.md) | Autenticación con JWT |
 | [`informe-frontend.md`](docs/seguridad/informe-frontend.md) | La Sala: XSS, minimización de datos y sesión en memoria |
+| [`informe-lab10.md`](docs/seguridad/informe-lab10.md) | Autorización, RBAC e IDOR/BOLA |
 
 | Técnica | Herramienta | Alcance | Resultado |
 | ------- | ----------- | ------- | --------- |
@@ -824,10 +1063,35 @@ cada bloque:
 | SCA, cierre del frontend | `npm audit --omit=dev` | lo que se despliega | 0 vulnerabilidades |
 | SAST, cierre del frontend | Semgrep con `p/javascript`, `p/nodejs`, `p/owasp-top-ten` y `p/xss` | 74 reglas, 61 archivos de `src/` y `frontend/` | 0 hallazgos |
 | XSS manual | Carga guardada en un evento desde la API | Cartelera y ficha del evento | Se muestra como texto; 0 nodos inyectados |
+| SCA, Lab 10 | `npm audit` | 159 paquetes, incluidas las de desarrollo | 3 altas, todas de `nodemon` |
+| SCA, Lab 10 | `npm audit --omit=dev` | 136 paquetes, lo que se despliega | 0 vulnerabilidades |
+| SAST, Lab 10 | Semgrep 1.179.0 con `p/javascript`, `p/nodejs` y `p/owasp-top-ten` | 74 reglas, 66 archivos de `src/` y `frontend/` | 0 hallazgos |
+| IDOR manual | Asistente A y B con boletas propias | `/boletas/asistente/:id`, `/boletas/:id`, `/estado` | Ajenas 403; propias 200 |
 
 **SCA.** Sin vulnerabilidades. `npm audit fix` no modificó el
 `package-lock.json`. Aviso de obsolescencia, sin vulnerabilidad asociada, en
 `glob@11.1.0` (dependencia transitiva de `swagger-jsdoc`).
+
+**SCA en el Lab 10: tres vulnerabilidades altas, y por qué no se arreglan.**
+Son nuevas, y hasta este laboratorio siempre reportamos cero. No vienen del
+código ni de ninguna dependencia de la API: vienen de `braces`, que entra por
+`chokidar`, que entra por `nodemon`, la única dependencia de desarrollo. Es una
+denegación de servicio por agotamiento de pila con patrones muy anidados. Con
+`--omit=dev`, que es lo que corre en producción, el resultado es **0 sobre 136
+paquetes**. No se arregla porque el arreglo es peor: `npm audit fix --force`
+instala `nodemon@1.14.10`, de 2018, con sus propios problemas. Preferimos dejar
+constancia del hallazgo, acotado a desarrollo, antes que empeorar el proyecto
+para que una tabla diga cero.
+
+**Nota de ejecución de Semgrep.** En el equipo de desarrollo, Smart App Control
+de Windows bloquea `semgrep-core.exe` (evento 3077 de CodeIntegrity). El
+escaneo del Lab 10 se hizo con la imagen oficial, que ejecuta el mismo análisis
+en Linux, sin desactivar ninguna protección del equipo:
+
+```bash
+docker run --rm -v "$(pwd):/src" -w /src semgrep/semgrep \
+  semgrep --config p/javascript --config p/nodejs --config p/owasp-top-ten src/ frontend/
+```
 
 **SAST.** Semgrep con `p/javascript`, `p/nodejs` y `p/owasp-top-ten`. La revisión
 manual comprobó el uso de `req.body`, concatenaciones de entrada, secretos, fugas
@@ -857,9 +1121,10 @@ devuelve JSON.
 | Funciones, incluida la ocupación del plano | 58 |
 | Boletas | 55 |
 | Límites de venta y regresión | 22 |
-| Asistente ligado a la cuenta | 18 |
+| Asistente ligado a la cuenta | 22 |
+| Autorización, RBAC e IDOR/BOLA | 101 |
 | Checklist de seguridad (35 casos) | 38 |
-| **Total** | **248, 0 fallos** |
+| **Total** | **353, 0 fallos** |
 
 ## Pruebas
 
@@ -873,7 +1138,8 @@ librería de test: son scripts de Node con `fetch`.
 | `pruebas-funciones.js` | Funciones: las ocho reglas de negocio, el cuadro de tarifas, la ocupación y la máquina de estados | 58 |
 | `pruebas-boletas.js` | Boletas: precio y código calculados por el servidor, butaca única, descuentos y estados | 55 |
 | `pruebas-limites.js` | Aforo, límite de 6 boletas por asistente y borrado protegido de funciones | 22 |
-| `pruebas-cuenta.js` | Asistente ligado a la cuenta: token obligatorio, aislamiento entre cuentas y Mass Assignment de `usuarioId` | 18 |
+| `pruebas-cuenta.js` | Asistente ligado a la cuenta: token obligatorio, aislamiento entre cuentas, edición del perfil propio y Mass Assignment de `usuarioId` | 22 |
+| `pruebas-autorizacion.js` | Autorización: los tres roles, el administrador inicial, la lista blanca del rol, el IDOR de boletas con dos asistentes y las 30 pruebas obligatorias del laboratorio | 101 |
 | `verificar-a.js` | Casos 1 a 16 del checklist: validación de entrada y Mass Assignment | 16 |
 | `verificar-b.js` | Casos 17 a 31: reglas de negocio e integridad | 16 |
 | `verificar-c.js` | Casos 32 a 35: cuerpo grande, límite de peticiones, cabeceras y error interno sin stack | 6 |
@@ -887,8 +1153,13 @@ npm run dev                    # terminal 1
 node pruebas/pruebas.js        # terminal 2
 ```
 
-Cada script carga el `.env` con dotenv y envía la cabecera `X-API-Key` en todas
-sus peticiones: la clave nunca está escrita en el código.
+`pruebas/sesion.js` centraliza la identidad: carga el `.env` con dotenv, envía
+la cabecera `X-API-Key` en todas las peticiones y entra como el administrador
+del `.env` cuando la batería necesita escribir. Ni la clave ni la contraseña
+están escritas en el código de las pruebas.
+
+Por eso las baterías necesitan `ADMIN_EMAIL` y `ADMIN_PASSWORD` en el `.env`:
+sin el administrador inicial no hay con qué crear un evento.
 
 Dos avisos:
 
@@ -913,44 +1184,44 @@ necesita el valor normal.
 - Los usuarios también viven en memoria: al reiniciar el servidor desaparecen y
   hay que volver a registrarlos.
 - Por el registro público no se puede crear un administrador, ni siquiera a
-  propósito. El primer administrador tendrá que salir de un proceso controlado
-  de inicialización o seed cuando haya base de datos, nunca del registro.
-- El rol viaja dentro del token, pero todavía no restringe nada: solo
-  `GET /api/auth/perfil` pide JWT, y ningún endpoint mira el rol para decidir.
+  propósito. El primero sale de `crearAdministradorInicial()`, que lo siembra
+  desde el `.env` al arrancar; los demás, de `POST /api/usuarios`.
 - `JWT_SECRET` se comprueba cuando se usa, no al arrancar. Si falta, el servidor
   arranca igual y falla al primer login, con un 500.
 - No hay forma de revocar un token antes de que caduque. Mientras no expire
   sigue sirviendo, aunque el usuario se deshabilite.
 - Si a un usuario le cambian el rol, su token viejo sigue diciendo el rol
   anterior hasta que expire, porque el rol se copió dentro del token al
-  emitirlo.
+  emitirlo. Importa más desde el Lab 10, porque ahora el rol decide.
+- Las tres vulnerabilidades altas de `npm audit` vienen de `nodemon`, la única
+  dependencia de desarrollo. Con `--omit=dev` no hay ninguna.
 - La API Key del frontend viaja al navegador y es visible para quien lo inspeccione.
   Identifica a la aplicación, no la protege; sin un proxy en el servidor no hay
   forma de evitarlo en una aplicación web.
-- **`GET /api/boletas/asistente/:id` sigue sin mirar quién pregunta (IDOR).**
-  Cualquiera que cambie el id ve las boletas de otra persona. La Sala ya no la
-  usa —desde la Fase 3 pide `GET /api/boletas/mias`, que resuelve el asistente
-  desde el token y no admite ningún id—, pero la ruta vieja sigue publicada para
-  la taquilla y para las pruebas de los laboratorios anteriores. Protegerla
-  exige decidir qué roles pueden consultar boletas ajenas.
-- **El pago simulado y la cancelación no comprueban el dueño.**
-  `PATCH /api/boletas/:id/estado` lo puede llamar cualquier cliente con una API
-  Key válida, sobre la boleta de cualquiera.
-- Las dos limitaciones anteriores se cierran igual: exigir JWT en esos endpoints
-  y comprobar que el asistente de la boleta pertenece al `sub` del token, salvo
-  para los roles `taquilla` y `administrador`. El vínculo `usuarioId` que se
-  añadió a los asistentes es justamente lo que hace falta para comprobarlo.
-- Un asistente solo se puede ligar a una cuenta desde la propia cuenta. Los
-  asistentes que registró la taquilla (`usuarioId: null`, como los de la
-  semilla) no se pueden reclamar después: haría falta un proceso de la taquilla
-  para asociarlos, porque dejar que cualquiera reclame un documento ajeno sería
-  justo el agujero que se quería evitar.
+- `GET /api/boletas/:id` responde 404 antes de mirar el rol, así que cualquier
+  sesión puede distinguir una boleta inexistente de una ajena. Es la decisión
+  de la guía del laboratorio y se mantuvo, pero lo coherente con el resto sería
+  responder 403 también ahí, como ya se hace en
+  `GET /api/boletas/asistente/:asistenteId`.
+- La taquilla no puede cambiar el estado de una función. Pasar una a `en_curso`
+  o a `finalizada` es trabajo de sala y no de programación, pero hoy exige un
+  administrador. Hacerlo bien pide un control por transición, no por endpoint.
+- No se puede quitar un vínculo `usuarioId`: se puede asignar y reasignar, pero
+  no dejar un asistente sin cuenta, porque el `PUT` conserva el valor cuando no
+  llega en lugar de borrarlo. Es deliberado: anular el vínculo por omisión
+  convertiría cualquier edición de un nombre en una desvinculación silenciosa.
+- Los asistentes de la semilla siguen con `usuarioId: null` y solo el
+  administrador los puede asociar a una cuenta. Es deliberado: dejar que
+  cualquiera reclame un documento ajeno sería justo el agujero que se quería
+  evitar.
+- No hay registro de auditoría. Un administrador puede crear usuarios y asociar
+  cuentas, pero no queda constancia de quién lo hizo ni cuándo.
 - Sin HTTPS: `Strict-Transport-Security` solo tiene efecto sobre TLS.
 - Concurrencia: Node procesa las peticiones en un solo hilo y las operaciones
   sobre los arrays son síncronas. Con una base de datos haría falta una
   transacción o un índice único para asignar butacas.
 
-## Documentación de entregas — Lab. No.5, No.6, No.7, No.8 y No.9
+## Documentación de entregas — Lab. No.5, No.6, No.7, No.8, No.9 y No.10
 
 - [Pruebas SCA + SAST + DAST y levantamiento de la API](docs/entregas/LEVANTAMIENTO%20DE%20LA%20API%20MAS%20PRUEBAS.pdf)
 - [Laboratorio 5: integridad referencial y API Keys](docs/entregas/Integridad%20referencial%20%2B%20API%20Keys.pdf)
@@ -958,6 +1229,7 @@ necesita el valor normal.
 - [Laboratorio 7: usuarios, hashing y salting](docs/entregas/Usuarios%20%2B%20Hashing%20%2B%20Salting%20%C2%B7%20API_TEATRO.pdf)
 - [Laboratorio 8: control del rol y escalada de privilegios](docs/entregas/Control%20del%20rol%20y%20prevenci%C3%B3n%20de%20escalada%20de%20privilegios%20%C2%B7%20API_TEATRO.pdf)
 - [Laboratorio 9: autenticación con JWT](docs/entregas/Autenticaci%C3%B3n%20con%20JWT%20-%20API_TEATRO.pdf)
+- Laboratorio 10: autorización, RBAC e IDOR/BOLA · [informe](docs/seguridad/informe-lab10.md)
 
 ## Integrantes
 
