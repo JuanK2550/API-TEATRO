@@ -1229,7 +1229,7 @@ necesita el valor normal.
 - [Laboratorio 7: usuarios, hashing y salting](docs/entregas/Usuarios%20%2B%20Hashing%20%2B%20Salting%20%C2%B7%20API_TEATRO.pdf)
 - [Laboratorio 8: control del rol y escalada de privilegios](docs/entregas/Control%20del%20rol%20y%20prevenci%C3%B3n%20de%20escalada%20de%20privilegios%20%C2%B7%20API_TEATRO.pdf)
 - [Laboratorio 9: autenticación con JWT](docs/entregas/Autenticaci%C3%B3n%20con%20JWT%20-%20API_TEATRO.pdf)
-- Laboratorio 10: autorización, RBAC e IDOR/BOLA · [informe](docs/seguridad/informe-lab10.md)
+- [Laboratorio 10: autorización segura, RBAC e IDOR/BOLA](docs/entregas/Autorizaci%C3%B3n%20Segura%20en%20APIs%20REST%20-%20API%20-%20TEATRO.pdf)
 
 ## Integrantes
 
