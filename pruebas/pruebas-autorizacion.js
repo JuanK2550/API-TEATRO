@@ -1396,6 +1396,56 @@ const principal = async () => {
   );
 
   // ========================================
+  // Filas de la tabla de 55 que faltaban
+  // ========================================
+  // La guia las separa del resto porque comprueban cosas distintas: que la ruta
+  // propia tambien exige sesion, que el administrador no esta por encima de las
+  // reglas de negocio, y que borrar un asistente referenciado sigue siendo 409.
+  grupo("Cierre de la tabla de la guía");
+
+  await comprobar(
+    "La ruta propia también exige sesión: /mias sin JWT es 401",
+    "GET",
+    "/api/boletas/mias",
+    undefined,
+    null,
+    401
+  );
+
+  // El administrador tiene permiso para cambiar el estado, pero no para saltarse
+  // la maquina de estados: cancelada es terminal para todo el mundo.
+  await comprobar(
+    "El administrador tampoco revive una boleta cancelada",
+    "PATCH",
+    `/api/boletas/${boletaA && boletaA.id}/estado`,
+    { estado: "pagada" },
+    tokenAdministrador,
+    409,
+    (d) =>
+      d && /cancelada a pagada/.test(d.mensaje || "")
+        ? null
+        : `el mensaje es "${d && d.mensaje}"`
+  );
+
+  // Ser administrador no permite violar la integridad referencial.
+  await comprobar(
+    "El administrador no borra un asistente con boletas: 409, no 200",
+    "DELETE",
+    // El asistente 1 es de la semilla y conserva sus boletas: las de A y B ya
+    // se tocaron en los grupos anteriores.
+    "/api/asistentes/1",
+    undefined,
+    tokenAdministrador,
+    409,
+    (d) =>
+      d &&
+      d.mensaje ===
+        "No se puede eliminar el asistente porque tiene boletas asociadas"
+        ? null
+        : `el mensaje es "${d && d.mensaje}"`
+  );
+
+  // ========================================
   // Borrado del evento de prueba
   // ========================================
   grupo("Borrado");

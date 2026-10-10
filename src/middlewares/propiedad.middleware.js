@@ -32,10 +32,26 @@ const asistenteDelToken = (req) =>
   asistentesService.buscarAsistentePorUsuario(req.usuario.id);
 
 // ========================================
+// Debe existir usuario autenticado
+// Si falta, la culpa es de la cadena, no del cliente
+// ========================================
+// En las rutas de hoy autenticarJWT corre antes y esto nunca salta. Está por
+// si alguien monta una guarda sin él: sin la comprobación, leer req.usuario.rol
+// lanzaría un TypeError y el cliente recibiría un 500 por un fallo de montaje
+// que en realidad es un 401.
+const sinUsuario = (req, res) => {
+  if (req.usuario) return false;
+  res.status(401).json({ mensaje: "Usuario no autenticado" });
+  return true;
+};
+
+// ========================================
 // Autorizar el acceso a los datos de un asistente
 // Para GET /api/boletas/asistente/:asistenteId
 // ========================================
 const autorizarAsistentePropio = (req, res, next) => {
+  if (sinUsuario(req, res)) return;
+
   if (ROLES_DE_MOSTRADOR.includes(req.usuario.rol)) return next();
 
   const propio = asistenteDelToken(req);
@@ -59,6 +75,8 @@ const autorizarAsistentePropio = (req, res, next) => {
 // Para GET /api/boletas/:id
 // ========================================
 const autorizarAccesoBoleta = (req, res, next) => {
+  if (sinUsuario(req, res)) return;
+
   const boleta = boletasService.obtenerBoletaPorId(req.params.id);
 
   if (!boleta) {
@@ -91,6 +109,8 @@ const autorizarAccesoBoleta = (req, res, next) => {
 // responde 409 en el controlador. Son dos preguntas distintas y se responden
 // por separado.
 const autorizarCambioEstadoBoleta = (req, res, next) => {
+  if (sinUsuario(req, res)) return;
+
   const boleta = boletasService.obtenerBoletaPorId(req.params.id);
 
   if (!boleta) {

@@ -1122,9 +1122,9 @@ devuelve JSON.
 | Boletas | 55 |
 | Límites de venta y regresión | 22 |
 | Asistente ligado a la cuenta | 22 |
-| Autorización, RBAC e IDOR/BOLA | 101 |
+| Autorización, RBAC e IDOR/BOLA | 104 |
 | Checklist de seguridad (35 casos) | 38 |
-| **Total** | **353, 0 fallos** |
+| **Total** | **356, 0 fallos** |
 
 ## Pruebas
 
@@ -1139,7 +1139,7 @@ librería de test: son scripts de Node con `fetch`.
 | `pruebas-boletas.js` | Boletas: precio y código calculados por el servidor, butaca única, descuentos y estados | 55 |
 | `pruebas-limites.js` | Aforo, límite de 6 boletas por asistente y borrado protegido de funciones | 22 |
 | `pruebas-cuenta.js` | Asistente ligado a la cuenta: token obligatorio, aislamiento entre cuentas, edición del perfil propio y Mass Assignment de `usuarioId` | 22 |
-| `pruebas-autorizacion.js` | Autorización: los tres roles, el administrador inicial, la lista blanca del rol, el IDOR de boletas con dos asistentes y las 30 pruebas obligatorias del laboratorio | 101 |
+| `pruebas-autorizacion.js` | Autorización: los tres roles, el administrador inicial, la lista blanca del rol, el IDOR de boletas con dos asistentes y las 30 pruebas obligatorias del laboratorio | 104 |
 | `verificar-a.js` | Casos 1 a 16 del checklist: validación de entrada y Mass Assignment | 16 |
 | `verificar-b.js` | Casos 17 a 31: reglas de negocio e integridad | 16 |
 | `verificar-c.js` | Casos 32 a 35: cuerpo grande, límite de peticiones, cabeceras y error interno sin stack | 6 |
