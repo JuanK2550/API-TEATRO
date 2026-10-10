@@ -1,3 +1,6 @@
 node_modules/
 .env
 .impeccable/review/
+# Guion de apoyo para las capturas: lleva las contraseñas de las cuentas
+# de prueba del laboratorio, así que no se versiona.
+pruebas/preparar-evidencias.js

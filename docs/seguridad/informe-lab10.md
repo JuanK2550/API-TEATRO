@@ -193,11 +193,9 @@ Son 48 endpoints en 26 rutas. 36 exigen sesión.
 | POST | `/api/auth/registro`, `/api/auth/login` | público | — |
 | GET | `/api/auth/perfil` | cualquier sesión | — |
 
-**La cartelera sigue pública** a propósito. Eventos, localidades, funciones,
-tarifas y ocupación no piden JWT, porque un teatro publica su programación: es
-información que quiere que se vea. Pedir sesión para consultar la cartelera no
-añadiría seguridad, solo estorbaría, y obligaría a la Sala a exigir una cuenta
-para mirar un cartel.
+**La cartelera sigue pública** a propósito, y es una **desviación consciente**
+frente a la política de la guía, que pide sesión también para consultar. Se
+explica abajo, en las desviaciones.
 
 ## IDOR y BOLA: las tres guardas
 
@@ -329,6 +327,39 @@ La guía está escrita sobre un sistema de **citas médicas** con pacientes y
 médicos. El teatro no se traduce campo por campo, y donde no se traduce lo
 decidimos a conciencia en lugar de forzar la analogía.
 
+### La cartelera es pública; la guía pide sesión para todo
+
+Es la desviación de mayor alcance y conviene decirla primero. La política RBAC
+de la guía (PARTE 2) exige sesión para **todos** los recursos, incluidas las
+consultas:
+
+| Recurso de la guía | Administrador | Médico | Paciente |
+| ------------------ | ------------- | ------ | -------- |
+| Especialidades, Médicos, Consultorios | CRUD | GET | GET |
+
+Y sus PARTES 24 a 26 lo escriben así:
+
+```js
+autenticarJWT,
+autorizarRoles("administrador", "medico", "paciente")
+```
+
+En el teatro, los equivalentes de esos tres recursos son **eventos, localidades
+y funciones**, y sus `GET` los dejamos **públicos**, sin JWT.
+
+La razón es que el hospital y el teatro publican cosas distintas. Un hospital no
+tiene por qué enseñar su lista de médicos a quien pase por la calle; un teatro
+**existe para publicar su cartelera**. Es información que queremos que se vea, y
+nuestra Sala la recorre sin pedir cuenta: obligar a registrarse para mirar un
+cartel convertiría la taquilla en línea en un muro.
+
+Lo que no cambia es que esas rutas siguen **bajo la API Key**, así que la prueba
+30 se cumple igual: sin `X-API-Key` responden 401. Lo que quitamos es la segunda
+barrera, no la primera.
+
+Si el enunciado exigiera la política literal, el cambio es de una línea por ruta
+y la Sala tendría que pedir sesión antes de la cartelera.
+
 ### El médico posee citas; la taquilla no posee boletas
 
 Es la diferencia estructural. En la guía, un médico **es** una entidad con citas
@@ -381,7 +412,7 @@ mejora.
 
 ## La tabla de las 30 pruebas obligatorias
 
-Las 101 comprobaciones de `pruebas/pruebas-autorizacion.js` cubren las 30. La
+Las 104 comprobaciones de `pruebas/pruebas-autorizacion.js` cubren las 30. La
 columna de la derecha dice cuál las comprueba.
 
 | # | Prueba de la guía | Equivalente en el teatro | Comprobación | Resultado |
@@ -400,21 +431,21 @@ columna de la derecha dice cuál las comprueba.
 | 12 | Paciente A → citas de B: 403 | igual | "A NO lee las de B cambiando el número", "B tampoco lee las de A" | correcto |
 | 13 | Paciente A → su cita individual: 200 | `GET /boletas/:id` propia | "A lee su propia boleta" | correcto |
 | 14 | Paciente A → cita individual de B: 403 | igual | "A NO lee la boleta de B", "B NO lee la boleta de A" | correcto |
-| 15 | Médico A → sus citas: 200 | **sin equivalente** | sustituida por "La taquilla también: atiende a quien tiene delante" (200 sobre el asistenteId de cualquiera) | correcto |
+| 15 | Médico A → sus citas `/medico/{A}`: 200 | **sin equivalente** | sustituida por "La taquilla también: atiende a quien tiene delante" (200 sobre el asistenteId de cualquiera) | correcto |
 | 16 | Médico A → citas de B: 403 | **sin equivalente** | sustituida por "La taquilla tampoco" en `/mias` (403) y por `GET /api/boletas/funcion/:funcionId`, que es su vista real | correcto |
 | 17 | Médico A → cita individual propia: 200 | **sin equivalente** | sustituida por "La taquilla lee cualquier boleta" (200) | correcto |
 | 18 | Médico A → cita individual ajena: 403 | **sin equivalente** | no aplica: la taquilla puede leer cualquier boleta por diseño, porque atiende al público. Lo que no puede es listar toda la boletería: "La taquilla tampoco" (403 en `GET /api/boletas`) | correcto |
 | 19 | Paciente → `/mis-citas`: 200, solo propias | asistente → `/boletas/mias` | "A ve en /mias solo sus boletas", "B ve en /mias solo las suyas" | correcto |
-| 20 | Médico → `/mis-citas`: 403 | taquilla → `/mias` | "La taquilla tampoco" | correcto |
+| 20 | Médico → `/mis-citas`: **200, solo propias** | **desviación**: la taquilla recibe 403 | "La taquilla tampoco" | 403 a propósito |
 | 21 | Admin → `/mis-citas`: 403 | igual | "El administrador no tiene /mias" | correcto |
 | 22 | Paciente sin perfil → `/mis-citas`: 403 | igual | "Una cuenta de asistente sin perfil no llega a sus boletas", "Un asistente sin perfil recibe 403 en /mias" | correcto |
 | 23 | Médico sin perfil | **sin equivalente**, igual que 15-18 | sustituida por la misma de la 22: lo que decide es tener perfil de asistente, no el rol | correcto |
 | 24 | Admin → todas las citas: 200 | `GET /api/boletas` | "El administrador sí" | correcto |
 | 25 | Paciente → todas: 403 | asistente | "A no lista toda la boletería" | correcto |
 | 26 | Médico → todas: 403 | taquilla | "La taquilla tampoco: para eso están las consultas por asistente y por función" | correcto |
-| 27 | Paciente/Médico → POST citas: 403 | **desviación** | el asistente compra (201) y la taquilla vende (201). Protegido por "Comprar a nombre de otro acaba a nombre propio" | correcto |
-| 28 | Paciente/Médico → PUT/PATCH/DELETE: 403 | asistente 403; taquilla PUT/PATCH sí, DELETE 403 | "Un asistente no modifica una boleta con PUT", "Ni la suya propia", "La taquilla sí pasa el control de rol del PUT", "La taquilla tampoco: borrar es solo del administrador" | correcto |
-| 29 | Paciente/Médico → PATCH estado: 403 | **desviación** | el dueño paga y cancela (200); `usada` es 403 para él: "A sí paga su propia boleta", "Y la cancela", "A no marca su propia boleta como usada" | correcto |
+| 27 | Paciente/Médico → `POST /api/citas`: **403** | **desviación** | el asistente compra (201) y la taquilla vende (201). Protegido por "Comprar a nombre de otro acaba a nombre propio" | correcto |
+| 28 | Paciente/Médico → PUT/PATCH/DELETE: **403** | **desviación parcial**: asistente 403; taquilla PUT/PATCH sí, DELETE 403 | "Un asistente no modifica una boleta con PUT", "Ni la suya propia", "La taquilla sí pasa el control de rol del PUT", "La taquilla tampoco: borrar es solo del administrador" | correcto |
+| 29 | Paciente/Médico → `PATCH .../estado`: **403** | **desviación** | el dueño paga y cancela (200); `usada` es 403 para él: "A sí paga su propia boleta", "Y la cancela", "A no marca su propia boleta como usada" | correcto |
 | 30 | Sin `X-API-Key`: 401 | igual | "GET /api/eventos sin API Key responde 401", "Leer una boleta sin X-API-Key es 401" | correcto |
 
 ### Por qué las 15 a 18 y la 23 se sustituyen así
@@ -499,9 +530,9 @@ Salidas completas en `sast-semgrep-lab10.txt` y `sca-npm-audit-lab10.txt`.
 | `pruebas-boletas.js` | 55 |
 | `pruebas-limites.js` | 22 |
 | `pruebas-cuenta.js` | 22 |
-| `pruebas-autorizacion.js` | 101 |
+| `pruebas-autorizacion.js` | 104 |
 | `verificar-a.js`, `verificar-b.js`, `verificar-c.js` | 16 + 16 + 6 |
-| **Total** | **353, 0 fallos** |
+| **Total** | **356, 0 fallos** |
 
 `pruebas/sesion.js` centraliza la identidad: pone la API Key en cada petición y
 entra como el administrador del `.env` cuando la batería necesita escribir. Las

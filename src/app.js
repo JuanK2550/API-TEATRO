@@ -186,6 +186,8 @@ usuariosService
   .then(() => {
     app.listen(PUERTO, () => {
       console.log(`Servidor escuchando en http://localhost:${PUERTO}`);
+      console.log(`Swagger UI: http://localhost:${PUERTO}/api-docs`);
+      console.log(`OpenAPI JSON: http://localhost:${PUERTO}/openapi.json`);
     });
   })
   .catch((error) => {
