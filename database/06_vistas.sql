@@ -15,7 +15,8 @@ BEGIN;
 -- LA PROGRAMACIÓN
 -- Cada función con su evento, sus precios y cuánto se ha vendido
 -- ========================================
-CREATE OR REPLACE VIEW public.v_programacion AS
+CREATE OR REPLACE VIEW public.v_programacion
+WITH (security_invoker = true) AS
 SELECT
     f.id                AS funcion_id,
     e.titulo            AS evento,
@@ -65,7 +66,8 @@ ORDER BY f.fecha, f.hora;
 -- LA BOLETERÍA
 -- Cada boleta con quién la compró, a qué va y dónde se sienta
 -- ========================================
-CREATE OR REPLACE VIEW public.v_boletas AS
+CREATE OR REPLACE VIEW public.v_boletas
+WITH (security_invoker = true) AS
 SELECT
     b.codigo,
     b.estado,
@@ -96,8 +98,21 @@ ORDER BY b.id;
 -- ========================================
 -- Permisos
 -- ========================================
--- El rol de la aplicación puede leerlas. Una vista hereda las políticas RLS de
--- las tablas que consulta, así que no abre ninguna puerta nueva.
+-- Una vista NO hereda las políticas RLS de las tablas que consulta: por
+-- omisión se ejecuta con los permisos de su dueño, y el dueño aquí es el rol
+-- administrador, que se salta RLS. Una vista así sería un rodeo para leer
+-- filas que la política niega. Con security_invoker la consulta se evalúa con
+-- los permisos de quien la llama, de modo que las políticas vuelven a
+-- aplicarse.
+--
+-- Supabase concede permisos por omisión a anon, authenticated y service_role
+-- sobre los objetos nuevos de public, y eso alcanza también a las vistas. Se
+-- les quitan, igual que se hizo con las tablas en 02_roles_seguridad.sql. La
+-- API_TEATRO no entra por PostgREST: se conecta con su propio usuario, así que
+-- ninguno de esos tres roles necesita ver estas vistas.
+REVOKE ALL ON public.v_programacion, public.v_boletas
+FROM PUBLIC, anon, authenticated, service_role;
+
 GRANT SELECT ON public.v_programacion, public.v_boletas TO api_teatro;
 
 COMMIT;
