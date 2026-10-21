@@ -44,7 +44,8 @@ const PASOS = [
   { archivo: "01_esquema_teatro.sql", que: "nueve tablas, índices y restricciones" },
   { archivo: "02_roles_seguridad.sql", que: "tres roles, RLS y REVOKE" },
   { archivo: "04_datos_semilla.sql", que: "los datos semilla" },
-  { archivo: "05_rol_aplicacion.sql", que: "el rol api_teatro y sus políticas" }
+  { archivo: "05_rol_aplicacion.sql", que: "el rol api_teatro y sus políticas" },
+  { archivo: "06_vistas.sql", que: "las vistas de consulta" }
 ];
 
 const TABLAS = [
@@ -165,6 +166,7 @@ const principal = async () => {
       // El rol y sus políticas sí se pueden rehacer sin tocar los datos: el
       // script 05 es idempotente.
       await consultar(leer("05_rol_aplicacion.sql"));
+      await consultar(leer("06_vistas.sql"));
     } else {
       for (const paso of PASOS) {
         process.stdout.write(`${paso.archivo.padEnd(26)} ${paso.que}… `);
