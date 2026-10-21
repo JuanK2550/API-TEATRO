@@ -18,15 +18,15 @@ const leerDatos = (req) => matchedData(req, { locations: ["body"] });
 // ========================================
 // GET todas
 // ========================================
-const obtenerLocalidades = (req, res) => {
-  res.status(200).json(localidadesService.obtenerLocalidades());
+const obtenerLocalidades = async (req, res) => {
+  res.status(200).json(await localidadesService.obtenerLocalidades());
 };
 
 // ========================================
 // GET por id
 // ========================================
-const obtenerLocalidadPorId = (req, res) => {
-  const localidad = localidadesService.obtenerLocalidadPorId(req.params.id);
+const obtenerLocalidadPorId = async (req, res) => {
+  const localidad = await localidadesService.obtenerLocalidadPorId(req.params.id);
 
   if (!localidad) {
     return res.status(404).json({ mensaje: "Localidad no encontrada" });
@@ -39,22 +39,22 @@ const obtenerLocalidadPorId = (req, res) => {
 // POST
 // El código y el orden no se pueden repetir
 // ========================================
-const crearLocalidad = (req, res) => {
+const crearLocalidad = async (req, res) => {
   const datos = leerDatos(req);
 
-  if (localidadesService.buscarLocalidadPorCodigo(datos.codigo)) {
+  if (await localidadesService.buscarLocalidadPorCodigo(datos.codigo)) {
     return res
       .status(409)
       .json({ mensaje: "Ya existe una localidad con ese código" });
   }
 
-  if (localidadesService.buscarLocalidadPorOrden(datos.orden)) {
+  if (await localidadesService.buscarLocalidadPorOrden(datos.orden)) {
     return res
       .status(409)
       .json({ mensaje: "Ya existe una localidad con ese orden" });
   }
 
-  const localidad = localidadesService.crearLocalidad(datos);
+  const localidad = await localidadesService.crearLocalidad(datos);
 
   res
     .status(201)
@@ -64,27 +64,27 @@ const crearLocalidad = (req, res) => {
 // ========================================
 // PUT
 // ========================================
-const actualizarLocalidad = (req, res) => {
+const actualizarLocalidad = async (req, res) => {
   const { id } = req.params;
   const datos = leerDatos(req);
 
-  if (!localidadesService.obtenerLocalidadPorId(id)) {
+  if (!await localidadesService.obtenerLocalidadPorId(id)) {
     return res.status(404).json({ mensaje: "Localidad no encontrada" });
   }
 
-  if (localidadesService.buscarLocalidadPorCodigo(datos.codigo, id)) {
+  if (await localidadesService.buscarLocalidadPorCodigo(datos.codigo, id)) {
     return res
       .status(409)
       .json({ mensaje: "Ya existe otra localidad con ese código" });
   }
 
-  if (localidadesService.buscarLocalidadPorOrden(datos.orden, id)) {
+  if (await localidadesService.buscarLocalidadPorOrden(datos.orden, id)) {
     return res
       .status(409)
       .json({ mensaje: "Ya existe otra localidad con ese orden" });
   }
 
-  const localidad = localidadesService.actualizarLocalidad(id, datos);
+  const localidad = await localidadesService.actualizarLocalidad(id, datos);
 
   res
     .status(200)
@@ -94,7 +94,7 @@ const actualizarLocalidad = (req, res) => {
 // ========================================
 // PATCH
 // ========================================
-const actualizarLocalidadParcial = (req, res) => {
+const actualizarLocalidadParcial = async (req, res) => {
   const { id } = req.params;
   const datos = leerDatos(req);
 
@@ -104,13 +104,13 @@ const actualizarLocalidadParcial = (req, res) => {
       .json({ mensaje: "Debe enviar al menos un campo para actualizar" });
   }
 
-  if (!localidadesService.obtenerLocalidadPorId(id)) {
+  if (!await localidadesService.obtenerLocalidadPorId(id)) {
     return res.status(404).json({ mensaje: "Localidad no encontrada" });
   }
 
   if (
     datos.codigo &&
-    localidadesService.buscarLocalidadPorCodigo(datos.codigo, id)
+    await localidadesService.buscarLocalidadPorCodigo(datos.codigo, id)
   ) {
     return res
       .status(409)
@@ -119,14 +119,14 @@ const actualizarLocalidadParcial = (req, res) => {
 
   if (
     datos.orden &&
-    localidadesService.buscarLocalidadPorOrden(datos.orden, id)
+    await localidadesService.buscarLocalidadPorOrden(datos.orden, id)
   ) {
     return res
       .status(409)
       .json({ mensaje: "Ya existe otra localidad con ese orden" });
   }
 
-  const localidad = localidadesService.actualizarLocalidadParcial(id, datos);
+  const localidad = await localidadesService.actualizarLocalidadParcial(id, datos);
 
   res
     .status(200)
@@ -137,9 +137,9 @@ const actualizarLocalidadParcial = (req, res) => {
 // PATCH estado
 // Único endpoint que activa o desactiva una localidad
 // ========================================
-const cambiarEstadoLocalidad = (req, res) => {
+const cambiarEstadoLocalidad = async (req, res) => {
   const { activa } = leerDatos(req);
-  const localidad = localidadesService.cambiarEstadoLocalidad(
+  const localidad = await localidadesService.cambiarEstadoLocalidad(
     req.params.id,
     activa
   );
@@ -160,27 +160,27 @@ const cambiarEstadoLocalidad = (req, res) => {
 // DELETE
 // Una localidad con boletas o con tarifas en alguna función no se elimina
 // ========================================
-const eliminarLocalidad = (req, res) => {
+const eliminarLocalidad = async (req, res) => {
   const { id } = req.params;
 
-  if (!localidadesService.obtenerLocalidadPorId(id)) {
+  if (!await localidadesService.obtenerLocalidadPorId(id)) {
     return res.status(404).json({ mensaje: "Localidad no encontrada" });
   }
 
-  if (boletasService.localidadTieneBoletas(id)) {
+  if (await boletasService.localidadTieneBoletas(id)) {
     return res.status(409).json({
       mensaje: "No se puede eliminar la localidad porque tiene boletas asociadas"
     });
   }
 
-  if (funcionesService.localidadTieneTarifas(id)) {
+  if (await funcionesService.localidadTieneTarifas(id)) {
     return res.status(409).json({
       mensaje:
         "No se puede eliminar la localidad porque está referenciada en las tarifas de una o más funciones"
     });
   }
 
-  localidadesService.eliminarLocalidad(id);
+  await localidadesService.eliminarLocalidad(id);
 
   res.status(200).json({ mensaje: "Localidad eliminada correctamente" });
 };

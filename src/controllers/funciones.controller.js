@@ -31,10 +31,10 @@ const esFechaPasada = (fecha) => {
 // Validar tarifas
 // Reglas 5 a 8. Devuelve null o { status, mensaje }, con status como código HTTP
 // ========================================
-const validarTarifas = (tarifas) => {
+const validarTarifas = async (tarifas) => {
   // Regla 5: cada localidad referenciada debe existir y estar activa.
   for (const tarifa of tarifas) {
-    const localidad = localidadesService.obtenerLocalidadPorId(
+    const localidad = await localidadesService.obtenerLocalidadPorId(
       tarifa.localidadId
     );
 
@@ -64,9 +64,12 @@ const validarTarifas = (tarifas) => {
   }
 
   // Regla 7: debe existir una tarifa para todas las localidades activas.
-  const faltantes = localidadesService
-    .obtenerLocalidades()
-    .filter((l) => l.activa && !idsLocalidades.includes(l.id));
+  // Los paréntesis importan: await se aplica a toda la expresión que le sigue,
+  // así que sin ellos .filter correría sobre la promesa y no sobre las filas.
+  const localidades = await localidadesService.obtenerLocalidades();
+  const faltantes = localidades.filter(
+    (l) => l.activa && !idsLocalidades.includes(l.id)
+  );
 
   if (faltantes.length > 0) {
     return {
@@ -78,10 +81,17 @@ const validarTarifas = (tarifas) => {
   }
 
   // Regla 8: a menor orden, más cerca del escenario y mayor precio.
-  const conLocalidad = tarifas.map((tarifa) => ({
-    precio: tarifa.precio,
-    localidad: localidadesService.obtenerLocalidadPorId(tarifa.localidadId)
-  }));
+  // Promise.all no es decorativo: un map con callback asíncrono devuelve un
+  // array de promesas, y comparar .orden sobre una promesa no falla, da
+  // undefined. Sin esto la regla pasaría siempre sin comprobar nada.
+  const conLocalidad = await Promise.all(
+    tarifas.map(async (tarifa) => ({
+      precio: tarifa.precio,
+      localidad: await localidadesService.obtenerLocalidadPorId(
+        tarifa.localidadId
+      )
+    }))
+  );
 
   for (const cercana of conLocalidad) {
     for (const lejana of conLocalidad) {
@@ -104,9 +114,9 @@ const validarTarifas = (tarifas) => {
 // Validar reglas de la función
 // Reglas 1 a 8. funcionIdExcluir excluye la propia función de la agenda
 // ========================================
-const validarReglasFuncion = (datos, funcionIdExcluir = null) => {
+const validarReglasFuncion = async (datos, funcionIdExcluir = null) => {
   // Regla 1: el evento debe existir.
-  const evento = eventosService.obtenerEventoPorId(datos.eventoId);
+  const evento = await eventosService.obtenerEventoPorId(datos.eventoId);
 
   if (!evento) {
     return { status: 400, mensaje: "El evento indicado no existe" };
@@ -130,7 +140,7 @@ const validarReglasFuncion = (datos, funcionIdExcluir = null) => {
 
   // Regla 4: la sala es única, no puede haber dos funciones simultáneas.
   if (
-    funcionesService.funcionTieneConflicto(
+    await funcionesService.funcionTieneConflicto(
       datos.fecha,
       datos.hora,
       funcionIdExcluir
@@ -142,34 +152,34 @@ const validarReglasFuncion = (datos, funcionIdExcluir = null) => {
     };
   }
 
-  return validarTarifas(datos.tarifas);
+  return await validarTarifas(datos.tarifas);
 };
 
 // ========================================
 // GET todas
 // ========================================
-const obtenerFunciones = (req, res) => {
-  res.status(200).json(funcionesService.obtenerFunciones());
+const obtenerFunciones = async (req, res) => {
+  res.status(200).json(await funcionesService.obtenerFunciones());
 };
 
 // ========================================
 // GET por evento
 // ========================================
-const obtenerFuncionesPorEvento = (req, res) => {
+const obtenerFuncionesPorEvento = async (req, res) => {
   const { eventoId } = req.params;
 
-  if (!eventosService.obtenerEventoPorId(eventoId)) {
+  if (!await eventosService.obtenerEventoPorId(eventoId)) {
     return res.status(404).json({ mensaje: "Evento no encontrado" });
   }
 
-  res.status(200).json(funcionesService.obtenerFuncionesPorEvento(eventoId));
+  res.status(200).json(await funcionesService.obtenerFuncionesPorEvento(eventoId));
 };
 
 // ========================================
 // GET por id
 // ========================================
-const obtenerFuncionPorId = (req, res) => {
-  const funcion = funcionesService.obtenerFuncionPorId(req.params.id);
+const obtenerFuncionPorId = async (req, res) => {
+  const funcion = await funcionesService.obtenerFuncionPorId(req.params.id);
 
   if (!funcion) {
     return res.status(404).json({ mensaje: "Función no encontrada" });
@@ -181,8 +191,8 @@ const obtenerFuncionPorId = (req, res) => {
 // ========================================
 // GET tarifas
 // ========================================
-const obtenerTarifasDeFuncion = (req, res) => {
-  const tarifas = funcionesService.obtenerTarifasDeFuncion(req.params.id);
+const obtenerTarifasDeFuncion = async (req, res) => {
+  const tarifas = await funcionesService.obtenerTarifasDeFuncion(req.params.id);
 
   if (!tarifas) {
     return res.status(404).json({ mensaje: "Función no encontrada" });
@@ -195,29 +205,29 @@ const obtenerTarifasDeFuncion = (req, res) => {
 // GET /:id/ocupacion
 // Qué butacas están tomadas, sin decir de quién son
 // ========================================
-const obtenerOcupacionDeFuncion = (req, res) => {
+const obtenerOcupacionDeFuncion = async (req, res) => {
   const { id } = req.params;
 
-  if (!funcionesService.obtenerFuncionPorId(id)) {
+  if (!await funcionesService.obtenerFuncionPorId(id)) {
     return res.status(404).json({ mensaje: "Función no encontrada" });
   }
 
-  res.status(200).json(boletasService.obtenerOcupacionDeFuncion(id));
+  res.status(200).json(await boletasService.obtenerOcupacionDeFuncion(id));
 };
 
 // ========================================
 // POST
 // La función siempre nace programada
 // ========================================
-const crearFuncion = (req, res) => {
+const crearFuncion = async (req, res) => {
   const datos = leerDatos(req);
 
-  const problema = validarReglasFuncion(datos);
+  const problema = await validarReglasFuncion(datos);
   if (problema) {
     return res.status(problema.status).json({ mensaje: problema.mensaje });
   }
 
-  const funcion = funcionesService.crearFuncion(datos);
+  const funcion = await funcionesService.crearFuncion(datos);
 
   res.status(201).json({ mensaje: "Función creada correctamente", funcion });
 };
@@ -226,11 +236,11 @@ const crearFuncion = (req, res) => {
 // PUT
 // Una función en curso, finalizada o cancelada no se modifica
 // ========================================
-const actualizarFuncion = (req, res) => {
+const actualizarFuncion = async (req, res) => {
   const { id } = req.params;
   const datos = leerDatos(req);
 
-  const actual = funcionesService.obtenerFuncionPorId(id);
+  const actual = await funcionesService.obtenerFuncionPorId(id);
 
   if (!actual) {
     return res.status(404).json({ mensaje: "Función no encontrada" });
@@ -242,12 +252,12 @@ const actualizarFuncion = (req, res) => {
     });
   }
 
-  const problema = validarReglasFuncion(datos, id);
+  const problema = await validarReglasFuncion(datos, id);
   if (problema) {
     return res.status(problema.status).json({ mensaje: problema.mensaje });
   }
 
-  const funcion = funcionesService.actualizarFuncion(id, datos);
+  const funcion = await funcionesService.actualizarFuncion(id, datos);
 
   res
     .status(200)
@@ -258,7 +268,7 @@ const actualizarFuncion = (req, res) => {
 // PATCH
 // Las reglas se comprueban sobre cómo queda la función después del cambio
 // ========================================
-const actualizarFuncionParcial = (req, res) => {
+const actualizarFuncionParcial = async (req, res) => {
   const { id } = req.params;
   const datos = leerDatos(req);
 
@@ -268,7 +278,7 @@ const actualizarFuncionParcial = (req, res) => {
       .json({ mensaje: "Debe enviar al menos un campo para actualizar" });
   }
 
-  const actual = funcionesService.obtenerFuncionPorId(id);
+  const actual = await funcionesService.obtenerFuncionPorId(id);
 
   if (!actual) {
     return res.status(404).json({ mensaje: "Función no encontrada" });
@@ -289,12 +299,12 @@ const actualizarFuncionParcial = (req, res) => {
       datos.descuentosHabilitados ?? actual.descuentosHabilitados
   };
 
-  const problema = validarReglasFuncion(resultante, id);
+  const problema = await validarReglasFuncion(resultante, id);
   if (problema) {
     return res.status(problema.status).json({ mensaje: problema.mensaje });
   }
 
-  const funcion = funcionesService.actualizarFuncionParcial(id, datos);
+  const funcion = await funcionesService.actualizarFuncionParcial(id, datos);
 
   res
     .status(200)
@@ -305,11 +315,11 @@ const actualizarFuncionParcial = (req, res) => {
 // PATCH estado
 // Pasar a en_venta exige un cuadro de tarifas completo y coherente
 // ========================================
-const cambiarEstadoFuncion = (req, res) => {
+const cambiarEstadoFuncion = async (req, res) => {
   const { id } = req.params;
   const { estado } = leerDatos(req);
 
-  const actual = funcionesService.obtenerFuncionPorId(id);
+  const actual = await funcionesService.obtenerFuncionPorId(id);
 
   if (!actual) {
     return res.status(404).json({ mensaje: "Función no encontrada" });
@@ -322,7 +332,7 @@ const cambiarEstadoFuncion = (req, res) => {
   }
 
   if (estado === "en_venta") {
-    const problema = validarTarifas(actual.tarifas);
+    const problema = await validarTarifas(actual.tarifas);
     if (problema) {
       return res.status(409).json({
         mensaje: `No se puede poner la función en venta: ${problema.mensaje}`
@@ -330,7 +340,7 @@ const cambiarEstadoFuncion = (req, res) => {
     }
   }
 
-  const funcion = funcionesService.cambiarEstadoFuncion(id, estado);
+  const funcion = await funcionesService.cambiarEstadoFuncion(id, estado);
 
   res.status(200).json({
     mensaje: `Función actualizada al estado ${estado}`,
@@ -342,20 +352,20 @@ const cambiarEstadoFuncion = (req, res) => {
 // DELETE
 // Una función con boletas asociadas no se elimina, aunque estén canceladas
 // ========================================
-const eliminarFuncion = (req, res) => {
+const eliminarFuncion = async (req, res) => {
   const { id } = req.params;
 
-  if (!funcionesService.obtenerFuncionPorId(id)) {
+  if (!await funcionesService.obtenerFuncionPorId(id)) {
     return res.status(404).json({ mensaje: "Función no encontrada" });
   }
 
-  if (boletasService.funcionTieneBoletas(id)) {
+  if (await boletasService.funcionTieneBoletas(id)) {
     return res.status(409).json({
       mensaje: "No se puede eliminar la función porque tiene boletas asociadas"
     });
   }
 
-  funcionesService.eliminarFuncion(id);
+  await funcionesService.eliminarFuncion(id);
 
   res.status(200).json({ mensaje: "Función eliminada correctamente" });
 };

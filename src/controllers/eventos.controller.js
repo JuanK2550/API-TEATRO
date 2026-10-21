@@ -17,15 +17,15 @@ const leerDatos = (req) => matchedData(req, { locations: ["body"] });
 // ========================================
 // GET todos
 // ========================================
-const obtenerEventos = (req, res) => {
-  res.status(200).json(eventosService.obtenerEventos());
+const obtenerEventos = async (req, res) => {
+  res.status(200).json(await eventosService.obtenerEventos());
 };
 
 // ========================================
 // GET por id
 // ========================================
-const obtenerEventoPorId = (req, res) => {
-  const evento = eventosService.obtenerEventoPorId(req.params.id);
+const obtenerEventoPorId = async (req, res) => {
+  const evento = await eventosService.obtenerEventoPorId(req.params.id);
 
   if (!evento) {
     return res.status(404).json({ mensaje: "Evento no encontrado" });
@@ -38,9 +38,9 @@ const obtenerEventoPorId = (req, res) => {
 // POST
 // El evento siempre nace activo
 // ========================================
-const crearEvento = (req, res) => {
+const crearEvento = async (req, res) => {
   const datos = leerDatos(req);
-  const evento = eventosService.crearEvento(datos);
+  const evento = await eventosService.crearEvento(datos);
 
   res.status(201).json({ mensaje: "Evento creado correctamente", evento });
 };
@@ -48,9 +48,9 @@ const crearEvento = (req, res) => {
 // ========================================
 // PUT
 // ========================================
-const actualizarEvento = (req, res) => {
+const actualizarEvento = async (req, res) => {
   const datos = leerDatos(req);
-  const evento = eventosService.actualizarEvento(req.params.id, datos);
+  const evento = await eventosService.actualizarEvento(req.params.id, datos);
 
   if (!evento) {
     return res.status(404).json({ mensaje: "Evento no encontrado" });
@@ -62,7 +62,7 @@ const actualizarEvento = (req, res) => {
 // ========================================
 // PATCH
 // ========================================
-const actualizarEventoParcial = (req, res) => {
+const actualizarEventoParcial = async (req, res) => {
   const datos = leerDatos(req);
 
   if (Object.keys(datos).length === 0) {
@@ -71,7 +71,7 @@ const actualizarEventoParcial = (req, res) => {
       .json({ mensaje: "Debe enviar al menos un campo para actualizar" });
   }
 
-  const evento = eventosService.actualizarEventoParcial(req.params.id, datos);
+  const evento = await eventosService.actualizarEventoParcial(req.params.id, datos);
 
   if (!evento) {
     return res.status(404).json({ mensaje: "Evento no encontrado" });
@@ -84,9 +84,9 @@ const actualizarEventoParcial = (req, res) => {
 // PATCH estado
 // Único endpoint que activa o desactiva un evento
 // ========================================
-const cambiarEstadoEvento = (req, res) => {
+const cambiarEstadoEvento = async (req, res) => {
   const { activo } = leerDatos(req);
-  const evento = eventosService.cambiarEstadoEvento(req.params.id, activo);
+  const evento = await eventosService.cambiarEstadoEvento(req.params.id, activo);
 
   if (!evento) {
     return res.status(404).json({ mensaje: "Evento no encontrado" });
@@ -104,20 +104,20 @@ const cambiarEstadoEvento = (req, res) => {
 // DELETE
 // Un evento con funciones asociadas no se elimina
 // ========================================
-const eliminarEvento = (req, res) => {
+const eliminarEvento = async (req, res) => {
   const { id } = req.params;
 
-  if (!eventosService.obtenerEventoPorId(id)) {
+  if (!await eventosService.obtenerEventoPorId(id)) {
     return res.status(404).json({ mensaje: "Evento no encontrado" });
   }
 
-  if (funcionesService.eventoTieneFunciones(id)) {
+  if (await funcionesService.eventoTieneFunciones(id)) {
     return res.status(409).json({
       mensaje: "No se puede eliminar el evento porque tiene funciones asociadas"
     });
   }
 
-  eventosService.eliminarEvento(id);
+  await eventosService.eliminarEvento(id);
 
   res.status(200).json({ mensaje: "Evento eliminado correctamente" });
 };

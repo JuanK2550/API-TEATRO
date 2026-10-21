@@ -37,7 +37,7 @@ const registrar = async (req, res, next) => {
   try {
     const datos = leerDatos(req);
 
-    if (usuariosService.obtenerUsuarioPorEmail(datos.email)) {
+    if (await usuariosService.obtenerUsuarioPorEmail(datos.email)) {
       return res.status(409).json({
         mensaje: "Ya existe un usuario con ese correo electrónico"
       });

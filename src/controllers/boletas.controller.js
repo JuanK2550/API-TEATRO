@@ -29,14 +29,14 @@ const ESTADO_FUNCION_PARA_USAR = "en_curso";
 // Validar relaciones
 // Devuelve null o { status, mensaje }, con status como código HTTP
 // ========================================
-const validarRelacionesBoleta = (datos) => {
+const validarRelacionesBoleta = async (datos) => {
   // 1. El asistente debe existir.
-  if (!asistentesService.obtenerAsistentePorId(datos.asistenteId)) {
+  if (!await asistentesService.obtenerAsistentePorId(datos.asistenteId)) {
     return { status: 400, mensaje: "El asistente indicado no existe" };
   }
 
   // 2. La función debe existir.
-  const funcion = funcionesService.obtenerFuncionPorId(datos.funcionId);
+  const funcion = await funcionesService.obtenerFuncionPorId(datos.funcionId);
 
   if (!funcion) {
     return { status: 400, mensaje: "La función indicada no existe" };
@@ -51,7 +51,7 @@ const validarRelacionesBoleta = (datos) => {
   }
 
   // 4. La localidad debe existir y estar activa.
-  const localidad = localidadesService.obtenerLocalidadPorId(datos.localidadId);
+  const localidad = await localidadesService.obtenerLocalidadPorId(datos.localidadId);
 
   if (!localidad) {
     return { status: 400, mensaje: "La localidad indicada no existe" };
@@ -101,10 +101,10 @@ const validarRelacionesBoleta = (datos) => {
 // Validar disponibilidad
 // boletaIdExcluir excluye la propia boleta al actualizarse
 // ========================================
-const validarDisponibilidadBoleta = (datos, boletaIdExcluir = null) => {
+const validarDisponibilidadBoleta = async (datos, boletaIdExcluir = null) => {
   // 1. La butaca no puede estar ocupada por otra boleta viva.
   if (
-    boletasService.butacaOcupada(
+    await boletasService.butacaOcupada(
       datos.funcionId,
       datos.localidadId,
       datos.fila,
@@ -119,8 +119,8 @@ const validarDisponibilidadBoleta = (datos, boletaIdExcluir = null) => {
   }
 
   // 2. No se puede superar el aforo de la localidad en esa función.
-  const localidad = localidadesService.obtenerLocalidadPorId(datos.localidadId);
-  const vendidas = boletasService.contarBoletasPorFuncionYLocalidad(
+  const localidad = await localidadesService.obtenerLocalidadPorId(datos.localidadId);
+  const vendidas = await boletasService.contarBoletasPorFuncionYLocalidad(
     datos.funcionId,
     datos.localidadId,
     boletaIdExcluir
@@ -134,7 +134,7 @@ const validarDisponibilidadBoleta = (datos, boletaIdExcluir = null) => {
   }
 
   // 3. Un mismo asistente no puede acaparar una función.
-  const delAsistente = boletasService.contarBoletasPorAsistenteYFuncion(
+  const delAsistente = await boletasService.contarBoletasPorAsistenteYFuncion(
     datos.asistenteId,
     datos.funcionId,
     boletaIdExcluir
@@ -153,21 +153,21 @@ const validarDisponibilidadBoleta = (datos, boletaIdExcluir = null) => {
 // ========================================
 // GET todas
 // ========================================
-const obtenerBoletas = (req, res) => {
-  res.status(200).json(boletasService.obtenerBoletas());
+const obtenerBoletas = async (req, res) => {
+  res.status(200).json(await boletasService.obtenerBoletas());
 };
 
 // ========================================
 // GET por asistente
 // ========================================
-const obtenerBoletasPorAsistente = (req, res) => {
+const obtenerBoletasPorAsistente = async (req, res) => {
   const { asistenteId } = req.params;
 
-  if (!asistentesService.obtenerAsistentePorId(asistenteId)) {
+  if (!await asistentesService.obtenerAsistentePorId(asistenteId)) {
     return res.status(404).json({ mensaje: "Asistente no encontrado" });
   }
 
-  res.status(200).json(boletasService.obtenerBoletasPorAsistente(asistenteId));
+  res.status(200).json(await boletasService.obtenerBoletasPorAsistente(asistenteId));
 };
 
 // ========================================
@@ -178,8 +178,8 @@ const obtenerBoletasPorAsistente = (req, res) => {
 // las boletas de otra persona cambiando un número. Una cuenta sin datos de
 // asistente no tiene boletas que mirar, y eso es un 403 y no un array vacío:
 // la ruta pide una condición que esa cuenta todavía no cumple.
-const obtenerMisBoletas = (req, res) => {
-  const asistente = asistentesService.buscarAsistentePorUsuario(req.usuario.id);
+const obtenerMisBoletas = async (req, res) => {
+  const asistente = await asistentesService.buscarAsistentePorUsuario(req.usuario.id);
 
   if (!asistente) {
     return res
@@ -187,27 +187,27 @@ const obtenerMisBoletas = (req, res) => {
       .json({ mensaje: "El usuario no tiene un asistente asociado" });
   }
 
-  res.status(200).json(boletasService.obtenerBoletasPorAsistente(asistente.id));
+  res.status(200).json(await boletasService.obtenerBoletasPorAsistente(asistente.id));
 };
 
 // ========================================
 // GET por función
 // ========================================
-const obtenerBoletasPorFuncion = (req, res) => {
+const obtenerBoletasPorFuncion = async (req, res) => {
   const { funcionId } = req.params;
 
-  if (!funcionesService.obtenerFuncionPorId(funcionId)) {
+  if (!await funcionesService.obtenerFuncionPorId(funcionId)) {
     return res.status(404).json({ mensaje: "Función no encontrada" });
   }
 
-  res.status(200).json(boletasService.obtenerBoletasPorFuncion(funcionId));
+  res.status(200).json(await boletasService.obtenerBoletasPorFuncion(funcionId));
 };
 
 // ========================================
 // GET por id
 // ========================================
-const obtenerBoletaPorId = (req, res) => {
-  const boleta = boletasService.obtenerBoletaPorId(req.params.id);
+const obtenerBoletaPorId = async (req, res) => {
+  const boleta = await boletasService.obtenerBoletaPorId(req.params.id);
 
   if (!boleta) {
     return res.status(404).json({ mensaje: "Boleta no encontrada" });
@@ -220,7 +220,7 @@ const obtenerBoletaPorId = (req, res) => {
 // POST
 // La boleta siempre nace reservada, con el precio y el codigo que calcula la API
 // ========================================
-const crearBoleta = (req, res) => {
+const crearBoleta = async (req, res) => {
   const datos = leerDatos(req);
 
   // ========================================
@@ -233,7 +233,7 @@ const crearBoleta = (req, res) => {
   // La taquilla y la administración sí lo indican: venden para quien tienen
   // delante.
   if (req.usuario.rol === "asistente") {
-    const propio = asistentesService.buscarAsistentePorUsuario(req.usuario.id);
+    const propio = await asistentesService.buscarAsistentePorUsuario(req.usuario.id);
 
     if (!propio) {
       return res
@@ -244,22 +244,22 @@ const crearBoleta = (req, res) => {
     datos.asistenteId = propio.id;
   }
 
-  const problemaRelaciones = validarRelacionesBoleta(datos);
+  const problemaRelaciones = await validarRelacionesBoleta(datos);
   if (problemaRelaciones) {
     return res
       .status(problemaRelaciones.status)
       .json({ mensaje: problemaRelaciones.mensaje });
   }
 
-  const problemaDisponibilidad = validarDisponibilidadBoleta(datos);
+  const problemaDisponibilidad = await validarDisponibilidadBoleta(datos);
   if (problemaDisponibilidad) {
     return res
       .status(problemaDisponibilidad.status)
       .json({ mensaje: problemaDisponibilidad.mensaje });
   }
 
-  const funcion = funcionesService.obtenerFuncionPorId(datos.funcionId);
-  const boleta = boletasService.crearBoleta(datos, funcion);
+  const funcion = await funcionesService.obtenerFuncionPorId(datos.funcionId);
+  const boleta = await boletasService.crearBoleta(datos, funcion);
 
   res.status(201).json({ mensaje: "Boleta creada correctamente", boleta });
 };
@@ -268,11 +268,11 @@ const crearBoleta = (req, res) => {
 // PUT
 // Solo se modifica una boleta reservada; el precio se recalcula
 // ========================================
-const actualizarBoleta = (req, res) => {
+const actualizarBoleta = async (req, res) => {
   const { id } = req.params;
   const datos = leerDatos(req);
 
-  const actual = boletasService.obtenerBoletaPorId(id);
+  const actual = await boletasService.obtenerBoletaPorId(id);
 
   if (!actual) {
     return res.status(404).json({ mensaje: "Boleta no encontrada" });
@@ -284,22 +284,22 @@ const actualizarBoleta = (req, res) => {
     });
   }
 
-  const problemaRelaciones = validarRelacionesBoleta(datos);
+  const problemaRelaciones = await validarRelacionesBoleta(datos);
   if (problemaRelaciones) {
     return res
       .status(problemaRelaciones.status)
       .json({ mensaje: problemaRelaciones.mensaje });
   }
 
-  const problemaDisponibilidad = validarDisponibilidadBoleta(datos, id);
+  const problemaDisponibilidad = await validarDisponibilidadBoleta(datos, id);
   if (problemaDisponibilidad) {
     return res
       .status(problemaDisponibilidad.status)
       .json({ mensaje: problemaDisponibilidad.mensaje });
   }
 
-  const funcion = funcionesService.obtenerFuncionPorId(datos.funcionId);
-  const boleta = boletasService.actualizarBoleta(id, datos, funcion);
+  const funcion = await funcionesService.obtenerFuncionPorId(datos.funcionId);
+  const boleta = await boletasService.actualizarBoleta(id, datos, funcion);
 
   res.status(200).json({ mensaje: "Boleta actualizada correctamente", boleta });
 };
@@ -308,7 +308,7 @@ const actualizarBoleta = (req, res) => {
 // PATCH
 // Las reglas se comprueban sobre cómo queda la boleta después del cambio
 // ========================================
-const actualizarBoletaParcial = (req, res) => {
+const actualizarBoletaParcial = async (req, res) => {
   const { id } = req.params;
   const datos = leerDatos(req);
 
@@ -318,7 +318,7 @@ const actualizarBoletaParcial = (req, res) => {
       .json({ mensaje: "Debe enviar al menos un campo para actualizar" });
   }
 
-  const actual = boletasService.obtenerBoletaPorId(id);
+  const actual = await boletasService.obtenerBoletaPorId(id);
 
   if (!actual) {
     return res.status(404).json({ mensaje: "Boleta no encontrada" });
@@ -339,22 +339,22 @@ const actualizarBoletaParcial = (req, res) => {
     tipoDescuento: datos.tipoDescuento ?? actual.tipoDescuento
   };
 
-  const problemaRelaciones = validarRelacionesBoleta(resultante);
+  const problemaRelaciones = await validarRelacionesBoleta(resultante);
   if (problemaRelaciones) {
     return res
       .status(problemaRelaciones.status)
       .json({ mensaje: problemaRelaciones.mensaje });
   }
 
-  const problemaDisponibilidad = validarDisponibilidadBoleta(resultante, id);
+  const problemaDisponibilidad = await validarDisponibilidadBoleta(resultante, id);
   if (problemaDisponibilidad) {
     return res
       .status(problemaDisponibilidad.status)
       .json({ mensaje: problemaDisponibilidad.mensaje });
   }
 
-  const funcion = funcionesService.obtenerFuncionPorId(resultante.funcionId);
-  const boleta = boletasService.actualizarBoletaParcial(id, datos, funcion);
+  const funcion = await funcionesService.obtenerFuncionPorId(resultante.funcionId);
+  const boleta = await boletasService.actualizarBoletaParcial(id, datos, funcion);
 
   res.status(200).json({ mensaje: "Boleta actualizada correctamente", boleta });
 };
@@ -363,11 +363,11 @@ const actualizarBoletaParcial = (req, res) => {
 // PATCH estado
 // Validación en la puerta: solo se marca usada con la función en curso
 // ========================================
-const cambiarEstadoBoleta = (req, res) => {
+const cambiarEstadoBoleta = async (req, res) => {
   const { id } = req.params;
   const { estado } = leerDatos(req);
 
-  const actual = boletasService.obtenerBoletaPorId(id);
+  const actual = await boletasService.obtenerBoletaPorId(id);
 
   if (!actual) {
     return res.status(404).json({ mensaje: "Boleta no encontrada" });
@@ -380,7 +380,7 @@ const cambiarEstadoBoleta = (req, res) => {
   }
 
   if (estado === "usada") {
-    const funcion = funcionesService.obtenerFuncionPorId(actual.funcionId);
+    const funcion = await funcionesService.obtenerFuncionPorId(actual.funcionId);
 
     if (!funcion || funcion.estado !== ESTADO_FUNCION_PARA_USAR) {
       return res.status(409).json({
@@ -389,7 +389,7 @@ const cambiarEstadoBoleta = (req, res) => {
     }
   }
 
-  const boleta = boletasService.cambiarEstadoBoleta(id, estado);
+  const boleta = await boletasService.cambiarEstadoBoleta(id, estado);
 
   res.status(200).json({
     mensaje: `Boleta actualizada al estado ${estado}`,
@@ -401,10 +401,10 @@ const cambiarEstadoBoleta = (req, res) => {
 // DELETE
 // Solo se eliminan boletas reservadas o canceladas
 // ========================================
-const eliminarBoleta = (req, res) => {
+const eliminarBoleta = async (req, res) => {
   const { id } = req.params;
 
-  const boleta = boletasService.obtenerBoletaPorId(id);
+  const boleta = await boletasService.obtenerBoletaPorId(id);
 
   if (!boleta) {
     return res.status(404).json({ mensaje: "Boleta no encontrada" });
@@ -416,7 +416,7 @@ const eliminarBoleta = (req, res) => {
     });
   }
 
-  boletasService.eliminarBoleta(id);
+  await boletasService.eliminarBoleta(id);
 
   res.status(200).json({ mensaje: "Boleta eliminada correctamente" });
 };

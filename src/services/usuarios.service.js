@@ -1,7 +1,7 @@
 // ========================================
 // Importaciones
 // ========================================
-const usuarios = require("../data/usuarios");
+const { consultar } = require("../config/database");
 const {
   generarPasswordHash,
   verificarPassword
@@ -21,85 +21,109 @@ const ROL_POR_DEFECTO = "asistente";
 const ROLES_ADMINISTRATIVOS = ["taquilla", "administrador"];
 
 // ========================================
+// De fila de PostgreSQL a objeto de la API
+// ========================================
+// El rol se guarda como rol_id y sale resuelto a su nombre, porque todo el
+// resto del proyecto —el JWT, autorizarRoles, las guardas— razona con
+// "administrador", no con un número.
+const aUsuario = (fila) =>
+  fila
+    ? {
+        id: fila.id,
+        nombre: fila.nombre,
+        email: fila.email,
+        passwordHash: fila.password_hash,
+        rol: fila.rol,
+        activo: fila.activo
+      }
+    : null;
+
+const SELECCION = `
+  SELECT u.id,
+         u.nombre,
+         u.email,
+         u.password_hash,
+         u.activo,
+         r.nombre AS rol
+  FROM public.usuarios u
+  JOIN public.roles r ON r.id = u.rol_id
+`;
+
+// ========================================
 // Obtener usuario por email
 // El email es único, comparado siempre en minúsculas
 // ========================================
-const obtenerUsuarioPorEmail = (email) =>
-  usuarios.find(
-    (usuario) => usuario.email.toLowerCase() === email.toLowerCase()
-  );
+const obtenerUsuarioPorEmail = async (email) => {
+  if (!email) return null;
+
+  const { rows } = await consultar(`${SELECCION} WHERE LOWER(u.email) = LOWER($1)`, [
+    email
+  ]);
+
+  return aUsuario(rows[0]);
+};
 
 // ========================================
 // Obtener usuario por id
 // ========================================
-const obtenerUsuarioPorId = (id) =>
-  usuarios.find((usuario) => usuario.id === Number(id));
+const obtenerUsuarioPorId = async (id) => {
+  const { rows } = await consultar(`${SELECCION} WHERE u.id = $1`, [Number(id)]);
+  return aUsuario(rows[0]);
+};
+
+// ========================================
+// Insertar un usuario con su rol
+// Pieza compartida por los tres caminos de creación
+// ========================================
+// El rol llega por nombre y se resuelve a su id con una subconsulta, en vez de
+// traerlo antes: así la inserción es una sola ida a la base.
+const insertarUsuario = async (nombre, email, passwordHash, rol) => {
+  const { rows } = await consultar(
+    `WITH nuevo AS (
+       INSERT INTO public.usuarios
+         (rol_id, nombre, email, password_hash, activo)
+       VALUES (
+         (SELECT id FROM public.roles WHERE nombre = $4),
+         $1, $2, $3, TRUE
+       )
+       RETURNING id, nombre, email, password_hash, activo, rol_id
+     )
+     SELECT nuevo.id,
+            nuevo.nombre,
+            nuevo.email,
+            nuevo.password_hash,
+            nuevo.activo,
+            r.nombre AS rol
+     FROM nuevo
+     JOIN public.roles r ON r.id = nuevo.rol_id`,
+    [nombre, email.toLowerCase(), passwordHash, rol]
+  );
+
+  return aUsuario(rows[0]);
+};
 
 // ========================================
 // Crear usuario
 // La contraseña se guarda solo como hash
 // ========================================
-// El objeto se arma campo por campo, nunca con spread de datos: solo entra lo
-// que se nombra aquí.
+// El rol se fija aquí y no se toma de datos: el registro público siempre crea
+// asistentes, y esa garantía no debe depender de que el controlador limpie el
+// cuerpo.
 const crearUsuario = async (datos) => {
   const passwordHash = await generarPasswordHash(datos.password);
-
-  const nuevoUsuario = {
-    id:
-      usuarios.length > 0
-        ? Math.max(...usuarios.map((usuario) => usuario.id)) + 1
-        : 1,
-    nombre: datos.nombre,
-    email: datos.email.toLowerCase(),
-    passwordHash,
-    // ========================================
-    // Valores controlados por el servidor
-    // El cliente no puede fijar su rol ni activarse a sí mismo
-    // ========================================
-    rol: ROL_POR_DEFECTO,
-    activo: true
-  };
-
-  usuarios.push(nuevoUsuario);
-
-  return nuevoUsuario;
+  return insertarUsuario(datos.nombre, datos.email, passwordHash, ROL_POR_DEFECTO);
 };
 
 // ========================================
 // Crear usuario administrativo
 // El único camino por el que se otorga taquilla o administrador
 // ========================================
-// Va aparte de crearUsuario a propósito: ese sigue forzando el rol
-// asistente para el registro público, y aquí el rol llega del cuerpo
-// después de pasar la lista blanca del validador. Mezclar los dos
-// caminos en una función con el rol opcional convertiría un olvido en
-// una escalada de privilegios.
-//
-// El objeto se arma campo por campo, nunca con spread de datos: el id,
-// el hash y el activo son del servidor, y lo que no se nombra aquí no
-// llega a los datos aunque el validador lo dejara pasar.
+// Va aparte de crearUsuario a propósito: ese sigue forzando el rol asistente.
+// Mezclar los dos caminos en una función con el rol opcional convertiría un
+// olvido en una escalada de privilegios.
 const crearUsuarioAdministrativo = async (datos) => {
   const passwordHash = await generarPasswordHash(datos.password);
-
-  const nuevoUsuario = {
-    id:
-      usuarios.length > 0
-        ? Math.max(...usuarios.map((usuario) => usuario.id)) + 1
-        : 1,
-    nombre: datos.nombre,
-    email: datos.email.toLowerCase(),
-    passwordHash,
-    rol: datos.rol,
-    // ========================================
-    // Valor controlado por el servidor
-    // Nadie se crea desactivado ni se activa a sí mismo
-    // ========================================
-    activo: true
-  };
-
-  usuarios.push(nuevoUsuario);
-
-  return nuevoUsuario;
+  return insertarUsuario(datos.nombre, datos.email, passwordHash, datos.rol);
 };
 
 // ========================================
@@ -107,14 +131,11 @@ const crearUsuarioAdministrativo = async (datos) => {
 // Devuelve null tanto si el email no existe como si la contraseña no coincide
 // ========================================
 const verificarCredenciales = async (email, password) => {
-  const usuario = obtenerUsuarioPorEmail(email);
+  const usuario = await obtenerUsuarioPorEmail(email);
 
-  if (!usuario) return null;
+  if (!usuario || !usuario.passwordHash) return null;
 
-  const passwordValida = await verificarPassword(
-    password,
-    usuario.passwordHash
-  );
+  const passwordValida = await verificarPassword(password, usuario.passwordHash);
 
   if (!passwordValida) return null;
 
@@ -145,27 +166,16 @@ const crearAdministradorInicial = async () => {
     return null;
   }
 
-  const existente = obtenerUsuarioPorEmail(email);
+  const existente = await obtenerUsuarioPorEmail(email);
   if (existente) return existente;
 
   const passwordHash = await generarPasswordHash(password);
-
-  const administrador = {
-    id:
-      usuarios.length > 0
-        ? Math.max(...usuarios.map((usuario) => usuario.id)) + 1
-        : 1,
+  const administrador = await insertarUsuario(
     nombre,
-    email: email.toLowerCase(),
+    email,
     passwordHash,
-    // ========================================
-    // Valores controlados por el servidor
-    // ========================================
-    rol: "administrador",
-    activo: true
-  };
-
-  usuarios.push(administrador);
+    "administrador"
+  );
 
   console.log("Administrador inicial creado");
 

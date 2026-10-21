@@ -1,146 +1,196 @@
 // ========================================
 // Importaciones
 // ========================================
-const localidades = require("../data/localidades");
+const { consultar } = require("../config/database");
 
 // ========================================
-// Utilidades internas
-// El id nuevo es el mayor existente más uno
+// De fila de PostgreSQL a objeto de la API
 // ========================================
-const generarId = () =>
-  localidades.length === 0 ? 1 : Math.max(...localidades.map((l) => l.id)) + 1;
+// La base usa snake_case y la API camelCase. El mapeo vive aquí, en el único
+// punto que habla con la base, para que ni los controladores ni las respuestas
+// cambien de forma por haber migrado.
+const aLocalidad = (fila) =>
+  fila
+    ? {
+        id: fila.id,
+        codigo: fila.codigo,
+        nombre: fila.nombre,
+        orden: fila.orden,
+        filas: fila.filas,
+        butacasPorFila: fila.butacas_por_fila,
+        capacidad: fila.capacidad,
+        activa: fila.activa
+      }
+    : null;
 
-const buscarIndice = (id) => localidades.findIndex((l) => l.id === Number(id));
-
-// La capacidad la administra la API, nunca llega del cliente.
-const calcularCapacidad = (filas, butacasPorFila) => filas * butacasPorFila;
+// capacidad es columna generada: se lee, nunca se escribe.
+const COLUMNAS = `
+  id, codigo, nombre, orden, filas, butacas_por_fila, capacidad, activa
+`;
 
 // ========================================
 // Obtener todas
 // ========================================
-const obtenerLocalidades = () => localidades;
+const obtenerLocalidades = async () => {
+  const { rows } = await consultar(`
+    SELECT ${COLUMNAS}
+    FROM public.localidades
+    ORDER BY id
+  `);
+
+  return rows.map(aLocalidad);
+};
 
 // ========================================
 // Obtener por id
 // ========================================
-const obtenerLocalidadPorId = (id) => {
-  const localidad = localidades.find((l) => l.id === Number(id));
-  return localidad || null;
+const obtenerLocalidadPorId = async (id) => {
+  const { rows } = await consultar(
+    `SELECT ${COLUMNAS} FROM public.localidades WHERE id = $1`,
+    [Number(id)]
+  );
+
+  return aLocalidad(rows[0]);
 };
 
 // ========================================
 // Buscar por código
 // idExcluido evita que un registro choque consigo mismo al actualizarse
 // ========================================
-const buscarLocalidadPorCodigo = (codigo, idExcluido = null) => {
-  const localidad = localidades.find(
-    (l) => l.codigo === codigo && l.id !== Number(idExcluido)
+const buscarLocalidadPorCodigo = async (codigo, idExcluido = null) => {
+  const { rows } = await consultar(
+    `SELECT ${COLUMNAS}
+     FROM public.localidades
+     WHERE codigo = $1
+       AND ($2::bigint IS NULL OR id <> $2)`,
+    [codigo, idExcluido === null ? null : Number(idExcluido)]
   );
-  return localidad || null;
+
+  return aLocalidad(rows[0]);
 };
 
 // ========================================
 // Buscar por orden
 // Dos localidades no pueden estar a la misma distancia del escenario
 // ========================================
-const buscarLocalidadPorOrden = (orden, idExcluido = null) => {
-  const localidad = localidades.find(
-    (l) => l.orden === Number(orden) && l.id !== Number(idExcluido)
+const buscarLocalidadPorOrden = async (orden, idExcluido = null) => {
+  const { rows } = await consultar(
+    `SELECT ${COLUMNAS}
+     FROM public.localidades
+     WHERE orden = $1
+       AND ($2::bigint IS NULL OR id <> $2)`,
+    [Number(orden), idExcluido === null ? null : Number(idExcluido)]
   );
-  return localidad || null;
+
+  return aLocalidad(rows[0]);
 };
 
 // ========================================
 // Crear
-// La capacidad se calcula y la localidad nace activa
+// La localidad nace activa y la capacidad la calcula la base
 // ========================================
-const crearLocalidad = (datos) => {
-  const localidad = {
-    id: generarId(),
-    codigo: datos.codigo,
-    nombre: datos.nombre,
-    orden: datos.orden,
-    filas: datos.filas,
-    butacasPorFila: datos.butacasPorFila,
-    capacidad: calcularCapacidad(datos.filas, datos.butacasPorFila),
-    activa: true
-  };
+const crearLocalidad = async (datos) => {
+  const { rows } = await consultar(
+    `INSERT INTO public.localidades
+       (codigo, nombre, orden, filas, butacas_por_fila, activa)
+     VALUES ($1, $2, $3, $4, $5, TRUE)
+     RETURNING ${COLUMNAS}`,
+    [
+      datos.codigo,
+      datos.nombre,
+      Number(datos.orden),
+      Number(datos.filas),
+      Number(datos.butacasPorFila)
+    ]
+  );
 
-  localidades.push(localidad);
-  return localidad;
+  return aLocalidad(rows[0]);
 };
 
 // ========================================
 // Actualizar completo
-// Conserva el id y el campo activa, y recalcula la capacidad
+// Conserva el id y el campo activa
 // ========================================
-const actualizarLocalidad = (id, datos) => {
-  const indice = buscarIndice(id);
-  if (indice === -1) return null;
+const actualizarLocalidad = async (id, datos) => {
+  const { rows } = await consultar(
+    `UPDATE public.localidades
+     SET codigo = $2,
+         nombre = $3,
+         orden = $4,
+         filas = $5,
+         butacas_por_fila = $6
+     WHERE id = $1
+     RETURNING ${COLUMNAS}`,
+    [
+      Number(id),
+      datos.codigo,
+      datos.nombre,
+      Number(datos.orden),
+      Number(datos.filas),
+      Number(datos.butacasPorFila)
+    ]
+  );
 
-  const actual = localidades[indice];
-
-  localidades[indice] = {
-    id: actual.id,
-    codigo: datos.codigo,
-    nombre: datos.nombre,
-    orden: datos.orden,
-    filas: datos.filas,
-    butacasPorFila: datos.butacasPorFila,
-    capacidad: calcularCapacidad(datos.filas, datos.butacasPorFila),
-    activa: actual.activa
-  };
-
-  return localidades[indice];
+  return aLocalidad(rows[0]);
 };
 
 // ========================================
 // Actualizar parcial
-// Los campos que no llegan conservan su valor y la capacidad se recalcula
+// Los campos que no llegan conservan su valor
 // ========================================
-const actualizarLocalidadParcial = (id, datos) => {
-  const indice = buscarIndice(id);
-  if (indice === -1) return null;
+// COALESCE hace en SQL lo mismo que hacía ?? en memoria: si el parámetro llega
+// nulo, se queda el valor de la columna.
+const actualizarLocalidadParcial = async (id, datos) => {
+  const { rows } = await consultar(
+    `UPDATE public.localidades
+     SET codigo = COALESCE($2, codigo),
+         nombre = COALESCE($3, nombre),
+         orden = COALESCE($4, orden),
+         filas = COALESCE($5, filas),
+         butacas_por_fila = COALESCE($6, butacas_por_fila)
+     WHERE id = $1
+     RETURNING ${COLUMNAS}`,
+    [
+      Number(id),
+      datos.codigo ?? null,
+      datos.nombre ?? null,
+      datos.orden ?? null,
+      datos.filas ?? null,
+      datos.butacasPorFila ?? null
+    ]
+  );
 
-  const actual = localidades[indice];
-  const filas = datos.filas ?? actual.filas;
-  const butacasPorFila = datos.butacasPorFila ?? actual.butacasPorFila;
-
-  localidades[indice] = {
-    id: actual.id,
-    codigo: datos.codigo ?? actual.codigo,
-    nombre: datos.nombre ?? actual.nombre,
-    orden: datos.orden ?? actual.orden,
-    filas,
-    butacasPorFila,
-    capacidad: calcularCapacidad(filas, butacasPorFila),
-    activa: actual.activa
-  };
-
-  return localidades[indice];
+  return aLocalidad(rows[0]);
 };
 
 // ========================================
 // Cambiar estado
 // Único punto donde se modifica el campo activa
 // ========================================
-const cambiarEstadoLocalidad = (id, activa) => {
-  const indice = buscarIndice(id);
-  if (indice === -1) return null;
+const cambiarEstadoLocalidad = async (id, activa) => {
+  const { rows } = await consultar(
+    `UPDATE public.localidades
+     SET activa = $2
+     WHERE id = $1
+     RETURNING ${COLUMNAS}`,
+    [Number(id), activa]
+  );
 
-  localidades[indice].activa = activa;
-  return localidades[indice];
+  return aLocalidad(rows[0]);
 };
 
 // ========================================
 // Eliminar
 // ========================================
-const eliminarLocalidad = (id) => {
-  const indice = buscarIndice(id);
-  if (indice === -1) return null;
+const eliminarLocalidad = async (id) => {
+  const { rows } = await consultar(
+    `DELETE FROM public.localidades
+     WHERE id = $1
+     RETURNING ${COLUMNAS}`,
+    [Number(id)]
+  );
 
-  const [eliminada] = localidades.splice(indice, 1);
-  return eliminada;
+  return aLocalidad(rows[0]);
 };
 
 // ========================================

@@ -4,3 +4,11 @@ node_modules/
 # Guion de apoyo para las capturas: lleva las contraseñas de las cuentas
 # de prueba del laboratorio, así que no se versiona.
 pruebas/preparar-evidencias.js
+
+# Cualquier variante del .env, pero nunca la plantilla
+.env.*
+!.env.example
+
+# El certificado de Supabase se descarga, no se versiona
+certs/*
+!certs/.gitkeep

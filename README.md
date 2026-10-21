@@ -1,8 +1,8 @@
 # API_TEATRO — Teatro Maldonado de Tunja
 
 API REST para programar funciones y vender boletería en el Teatro Maldonado de
-Tunja. Hecha con Node.js y Express, con datos en memoria y documentada con
-OpenAPI 3.0.3.
+Tunja. Hecha con Node.js y Express, con los datos en PostgreSQL sobre Supabase
+y documentada con OpenAPI 3.0.3.
 
 ## Objetivo y contexto
 
@@ -124,6 +124,7 @@ distingue las canceladas.
 | JWT | Token firmado con HS256 y caducidad; algoritmo fijo al firmar y al verificar |
 | Autorización por rol | `autorizarRoles` en 36 endpoints: 401 sin sesión, 403 si el rol no corresponde |
 | Propiedad del dato | Tres guardas en `propiedad.middleware.js`: un asistente solo ve y toca lo suyo |
+| Persistencia | PostgreSQL en Supabase, con TLS y certificado verificado; las reglas críticas también como restricciones de la base |
 | helmet | Cabeceras de seguridad en todas las respuestas |
 | `x-powered-by` | Deshabilitado con `app.disable("x-powered-by")` |
 | CORS | Origen único desde `ALLOWED_ORIGIN`; métodos GET, POST, PUT, PATCH, DELETE |
@@ -790,6 +791,7 @@ Los comandos se ejecutan desde la raíz del proyecto. El servidor queda en
 | `ADMIN_NOMBRE` | sin valor | Nombre del administrador que se siembra al arrancar |
 | `ADMIN_EMAIL` | sin valor | Su correo |
 | `ADMIN_PASSWORD` | sin valor | Su contraseña. **Solo vive aquí y nunca se imprime** |
+| `DATABASE_URL` | sin valor | Cadena de conexión con Supabase PostgreSQL |
 
 `.env` está en `.gitignore`; `.env.example` es la plantilla y nunca lleva las
 claves reales: solo trae marcadores. **Cada integrante genera su propio
@@ -836,6 +838,9 @@ API_TEATRO/
 ├── .gitignore
 ├── README.md
 ├── package.json
+├── certs/                       # certificado TLS de Supabase (no se versiona)
+├── database/                    # esquema SQL, roles, semilla y verificación
+├── scripts/                     # preparar-base.js y probar-conexion.js
 ├── docs/entregas/                # informes de entrega en PDF
 ├── docs/seguridad/               # salidas de las herramientas e informes por laboratorio
 ├── frontend/                     # la Sala, servida en /sala
@@ -872,6 +877,8 @@ API_TEATRO/
 │   └── verificar-c.js
 └── src/
     ├── app.js
+    ├── config/
+    │   └── database.js           # pool de PostgreSQL con TLS
     ├── controllers/
     │   ├── asistentes.controller.js
     │   ├── auth.controller.js
@@ -1163,9 +1170,15 @@ sin el administrador inicial no hay con qué crear un evento.
 
 Dos avisos:
 
-- Los datos están en memoria y las pruebas crean y borran registros, así que
-  **el servidor se reinicia antes de cada script** para partir de los datos
-  semilla.
+- Las pruebas crean y borran registros, y desde la migración a PostgreSQL esos
+  cambios **sobreviven al reinicio del servidor**. Para partir siempre de los
+  datos semilla hay que reiniciar la base antes de cada script:
+
+```bash
+node scripts/preparar-base.js --reiniciar
+```
+
+  Reiniciar Node ya no basta: ese era justamente el objetivo del bloque 7.
 - Salvo `verificar-c.js`, los scripts superan las 100 peticiones por ventana y
   chocan con el límite. Se lanzan con el límite subido:
 
@@ -1178,11 +1191,8 @@ necesita el valor normal.
 
 ## Limitaciones conocidas
 
-- Sin persistencia: los datos se reinician con el servidor.
 - Los clientes están en memoria. Deshabilitar o añadir uno exige editar
   `src/data/apiKeys.js` y reiniciar; no hay endpoint para gestionarlos.
-- Los usuarios también viven en memoria: al reiniciar el servidor desaparecen y
-  hay que volver a registrarlos.
 - Por el registro público no se puede crear un administrador, ni siquiera a
   propósito. El primero sale de `crearAdministradorInicial()`, que lo siembra
   desde el `.env` al arrancar; los demás, de `POST /api/usuarios`.

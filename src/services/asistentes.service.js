@@ -1,130 +1,181 @@
 // ========================================
 // Importaciones
 // ========================================
-const asistentes = require("../data/asistentes");
+const { consultar } = require("../config/database");
 
 // ========================================
-// Utilidades internas
-// El id nuevo es el mayor existente más uno
+// De fila de PostgreSQL a objeto de la API
 // ========================================
-const generarId = () =>
-  asistentes.length === 0 ? 1 : Math.max(...asistentes.map((a) => a.id)) + 1;
+const aAsistente = (fila) =>
+  fila
+    ? {
+        id: fila.id,
+        nombre: fila.nombre,
+        documento: fila.documento,
+        email: fila.email,
+        telefono: fila.telefono,
+        fechaNacimiento: fila.fecha_nacimiento,
+        usuarioId: fila.usuario_id
+      }
+    : null;
 
-const buscarIndice = (id) => asistentes.findIndex((a) => a.id === Number(id));
+const COLUMNAS = `
+  id, nombre, documento, email, telefono, fecha_nacimiento, usuario_id
+`;
 
 // ========================================
 // Obtener todos
 // ========================================
-const obtenerAsistentes = () => asistentes;
+const obtenerAsistentes = async () => {
+  const { rows } = await consultar(`
+    SELECT ${COLUMNAS}
+    FROM public.asistentes
+    ORDER BY id
+  `);
+
+  return rows.map(aAsistente);
+};
 
 // ========================================
 // Obtener por id
 // ========================================
-const obtenerAsistentePorId = (id) => {
-  const asistente = asistentes.find((a) => a.id === Number(id));
-  return asistente || null;
+const obtenerAsistentePorId = async (id) => {
+  const { rows } = await consultar(
+    `SELECT ${COLUMNAS} FROM public.asistentes WHERE id = $1`,
+    [Number(id)]
+  );
+
+  return aAsistente(rows[0]);
 };
 
 // ========================================
 // Buscar por documento
 // idExcluido evita que un registro choque consigo mismo al actualizarse
 // ========================================
-const buscarAsistentePorDocumento = (documento, idExcluido = null) => {
-  const asistente = asistentes.find(
-    (a) => a.documento === documento && a.id !== Number(idExcluido)
+const buscarAsistentePorDocumento = async (documento, idExcluido = null) => {
+  const { rows } = await consultar(
+    `SELECT ${COLUMNAS}
+     FROM public.asistentes
+     WHERE documento = $1
+       AND ($2::bigint IS NULL OR id <> $2)`,
+    [documento, idExcluido === null ? null : Number(idExcluido)]
   );
-  return asistente || null;
+
+  return aAsistente(rows[0]);
 };
 
 // ========================================
 // Buscar por usuario
 // Qué asistente corresponde a una cuenta
 // ========================================
-const buscarAsistentePorUsuario = (usuarioId) => {
-  const asistente = asistentes.find((a) => a.usuarioId === Number(usuarioId));
-  return asistente || null;
+const buscarAsistentePorUsuario = async (usuarioId) => {
+  if (usuarioId === null || usuarioId === undefined) return null;
+
+  const { rows } = await consultar(
+    `SELECT ${COLUMNAS} FROM public.asistentes WHERE usuario_id = $1`,
+    [Number(usuarioId)]
+  );
+
+  return aAsistente(rows[0]);
 };
 
 // ========================================
 // Crear
-// usuarioId lo pone el controlador desde el token, nunca el cliente
+// usuarioId lo pone el controlador, nunca el cliente
 // ========================================
-// El cliente no declara usuarioId en ningún validador, así que matchedData lo
-// descarta. El vínculo con la cuenta sale del JWT o se queda en null: es la
-// diferencia entre un asistente que se identifica solo y uno que registró la
-// taquilla.
-const crearAsistente = (datos, usuarioId = null) => {
-  const asistente = {
-    id: generarId(),
-    nombre: datos.nombre,
-    documento: datos.documento,
-    email: datos.email,
-    telefono: datos.telefono,
-    fechaNacimiento: datos.fechaNacimiento,
-    usuarioId: usuarioId === null ? null : Number(usuarioId)
-  };
+// El vínculo con la cuenta sale del JWT o se queda en null: es la diferencia
+// entre un asistente que se identifica solo y uno que registró la taquilla.
+const crearAsistente = async (datos, usuarioId = null) => {
+  const { rows } = await consultar(
+    `INSERT INTO public.asistentes
+       (nombre, documento, email, telefono, fecha_nacimiento, usuario_id)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING ${COLUMNAS}`,
+    [
+      datos.nombre,
+      datos.documento,
+      datos.email,
+      datos.telefono,
+      datos.fechaNacimiento,
+      usuarioId === null || usuarioId === undefined ? null : Number(usuarioId)
+    ]
+  );
 
-  asistentes.push(asistente);
-  return asistente;
+  return aAsistente(rows[0]);
 };
 
 // ========================================
 // Actualizar completo
 // Reemplaza todos los campos y conserva el id
 // ========================================
-const actualizarAsistente = (id, datos) => {
-  const indice = buscarIndice(id);
-  if (indice === -1) return null;
+// El vínculo con la cuenta se fija si llega y se conserva si no: nunca se
+// borra por omisión, porque editar un nombre no debe desvincular una cuenta.
+const actualizarAsistente = async (id, datos) => {
+  const { rows } = await consultar(
+    `UPDATE public.asistentes
+     SET nombre = $2,
+         documento = $3,
+         email = $4,
+         telefono = $5,
+         fecha_nacimiento = $6,
+         usuario_id = COALESCE($7, usuario_id)
+     WHERE id = $1
+     RETURNING ${COLUMNAS}`,
+    [
+      Number(id),
+      datos.nombre,
+      datos.documento,
+      datos.email,
+      datos.telefono,
+      datos.fechaNacimiento,
+      datos.usuarioId ?? null
+    ]
+  );
 
-  asistentes[indice] = {
-    id: asistentes[indice].id,
-    nombre: datos.nombre,
-    documento: datos.documento,
-    email: datos.email,
-    telefono: datos.telefono,
-    fechaNacimiento: datos.fechaNacimiento,
-    // ========================================
-    // El vínculo con la cuenta
-    // Se fija si llega, se conserva si no: nunca se borra por omisión
-    // ========================================
-    usuarioId: datos.usuarioId ?? asistentes[indice].usuarioId
-  };
-
-  return asistentes[indice];
+  return aAsistente(rows[0]);
 };
 
 // ========================================
 // Actualizar parcial
 // Los campos que no llegan conservan su valor
 // ========================================
-const actualizarAsistenteParcial = (id, datos) => {
-  const indice = buscarIndice(id);
-  if (indice === -1) return null;
+const actualizarAsistenteParcial = async (id, datos) => {
+  const { rows } = await consultar(
+    `UPDATE public.asistentes
+     SET nombre = COALESCE($2, nombre),
+         documento = COALESCE($3, documento),
+         email = COALESCE($4, email),
+         telefono = COALESCE($5, telefono),
+         fecha_nacimiento = COALESCE($6, fecha_nacimiento),
+         usuario_id = COALESCE($7, usuario_id)
+     WHERE id = $1
+     RETURNING ${COLUMNAS}`,
+    [
+      Number(id),
+      datos.nombre ?? null,
+      datos.documento ?? null,
+      datos.email ?? null,
+      datos.telefono ?? null,
+      datos.fechaNacimiento ?? null,
+      datos.usuarioId ?? null
+    ]
+  );
 
-  const actual = asistentes[indice];
-
-  asistentes[indice] = {
-    id: actual.id,
-    nombre: datos.nombre ?? actual.nombre,
-    documento: datos.documento ?? actual.documento,
-    email: datos.email ?? actual.email,
-    telefono: datos.telefono ?? actual.telefono,
-    fechaNacimiento: datos.fechaNacimiento ?? actual.fechaNacimiento,
-    usuarioId: datos.usuarioId ?? actual.usuarioId
-  };
-
-  return asistentes[indice];
+  return aAsistente(rows[0]);
 };
 
 // ========================================
 // Eliminar
 // ========================================
-const eliminarAsistente = (id) => {
-  const indice = buscarIndice(id);
-  if (indice === -1) return null;
+const eliminarAsistente = async (id) => {
+  const { rows } = await consultar(
+    `DELETE FROM public.asistentes
+     WHERE id = $1
+     RETURNING ${COLUMNAS}`,
+    [Number(id)]
+  );
 
-  const [eliminado] = asistentes.splice(indice, 1);
-  return eliminado;
+  return aAsistente(rows[0]);
 };
 
 // ========================================

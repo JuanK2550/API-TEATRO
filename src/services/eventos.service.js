@@ -1,116 +1,157 @@
 // ========================================
 // Importaciones
 // ========================================
-const eventos = require("../data/eventos");
+const { consultar } = require("../config/database");
 
 // ========================================
-// Utilidades internas
-// El id nuevo es el mayor existente más uno
+// De fila de PostgreSQL a objeto de la API
 // ========================================
-const generarId = () =>
-  eventos.length === 0 ? 1 : Math.max(...eventos.map((e) => e.id)) + 1;
+const aEvento = (fila) =>
+  fila
+    ? {
+        id: fila.id,
+        titulo: fila.titulo,
+        tipo: fila.tipo,
+        descripcion: fila.descripcion,
+        duracionMinutos: fila.duracion_minutos,
+        clasificacionEdad: fila.clasificacion_edad,
+        activo: fila.activo
+      }
+    : null;
 
-const buscarIndice = (id) => eventos.findIndex((e) => e.id === Number(id));
+const COLUMNAS = `
+  id, titulo, tipo, descripcion, duracion_minutos, clasificacion_edad, activo
+`;
 
 // ========================================
 // Obtener todos
 // ========================================
-const obtenerEventos = () => eventos;
+const obtenerEventos = async () => {
+  const { rows } = await consultar(`
+    SELECT ${COLUMNAS}
+    FROM public.eventos
+    ORDER BY id
+  `);
+
+  return rows.map(aEvento);
+};
 
 // ========================================
 // Obtener por id
 // ========================================
-const obtenerEventoPorId = (id) => {
-  const evento = eventos.find((e) => e.id === Number(id));
-  return evento || null;
+const obtenerEventoPorId = async (id) => {
+  const { rows } = await consultar(
+    `SELECT ${COLUMNAS} FROM public.eventos WHERE id = $1`,
+    [Number(id)]
+  );
+
+  return aEvento(rows[0]);
 };
 
 // ========================================
 // Crear
-// El campo activo lo administra la API: todo evento nace activo
+// Todo evento nace activo
 // ========================================
-const crearEvento = (datos) => {
-  const evento = {
-    id: generarId(),
-    titulo: datos.titulo,
-    tipo: datos.tipo,
-    descripcion: datos.descripcion,
-    duracionMinutos: datos.duracionMinutos,
-    clasificacionEdad: datos.clasificacionEdad,
-    activo: true
-  };
+const crearEvento = async (datos) => {
+  const { rows } = await consultar(
+    `INSERT INTO public.eventos
+       (titulo, tipo, descripcion, duracion_minutos, clasificacion_edad, activo)
+     VALUES ($1, $2, $3, $4, $5, TRUE)
+     RETURNING ${COLUMNAS}`,
+    [
+      datos.titulo,
+      datos.tipo,
+      datos.descripcion,
+      Number(datos.duracionMinutos),
+      datos.clasificacionEdad
+    ]
+  );
 
-  eventos.push(evento);
-  return evento;
+  return aEvento(rows[0]);
 };
 
 // ========================================
 // Actualizar completo
 // Conserva el id y el campo activo
 // ========================================
-const actualizarEvento = (id, datos) => {
-  const indice = buscarIndice(id);
-  if (indice === -1) return null;
+const actualizarEvento = async (id, datos) => {
+  const { rows } = await consultar(
+    `UPDATE public.eventos
+     SET titulo = $2,
+         tipo = $3,
+         descripcion = $4,
+         duracion_minutos = $5,
+         clasificacion_edad = $6
+     WHERE id = $1
+     RETURNING ${COLUMNAS}`,
+    [
+      Number(id),
+      datos.titulo,
+      datos.tipo,
+      datos.descripcion,
+      Number(datos.duracionMinutos),
+      datos.clasificacionEdad
+    ]
+  );
 
-  const actual = eventos[indice];
-
-  eventos[indice] = {
-    id: actual.id,
-    titulo: datos.titulo,
-    tipo: datos.tipo,
-    descripcion: datos.descripcion,
-    duracionMinutos: datos.duracionMinutos,
-    clasificacionEdad: datos.clasificacionEdad,
-    activo: actual.activo
-  };
-
-  return eventos[indice];
+  return aEvento(rows[0]);
 };
 
 // ========================================
 // Actualizar parcial
 // Los campos que no llegan conservan su valor
 // ========================================
-const actualizarEventoParcial = (id, datos) => {
-  const indice = buscarIndice(id);
-  if (indice === -1) return null;
+const actualizarEventoParcial = async (id, datos) => {
+  const { rows } = await consultar(
+    `UPDATE public.eventos
+     SET titulo = COALESCE($2, titulo),
+         tipo = COALESCE($3, tipo),
+         descripcion = COALESCE($4, descripcion),
+         duracion_minutos = COALESCE($5, duracion_minutos),
+         clasificacion_edad = COALESCE($6, clasificacion_edad)
+     WHERE id = $1
+     RETURNING ${COLUMNAS}`,
+    [
+      Number(id),
+      datos.titulo ?? null,
+      datos.tipo ?? null,
+      datos.descripcion ?? null,
+      datos.duracionMinutos ?? null,
+      datos.clasificacionEdad ?? null
+    ]
+  );
 
-  const actual = eventos[indice];
-
-  eventos[indice] = {
-    id: actual.id,
-    titulo: datos.titulo ?? actual.titulo,
-    tipo: datos.tipo ?? actual.tipo,
-    descripcion: datos.descripcion ?? actual.descripcion,
-    duracionMinutos: datos.duracionMinutos ?? actual.duracionMinutos,
-    clasificacionEdad: datos.clasificacionEdad ?? actual.clasificacionEdad,
-    activo: actual.activo
-  };
-
-  return eventos[indice];
+  return aEvento(rows[0]);
 };
 
 // ========================================
 // Cambiar estado
 // Único punto donde se modifica el campo activo
 // ========================================
-const cambiarEstadoEvento = (id, activo) => {
-  const indice = buscarIndice(id);
-  if (indice === -1) return null;
+const cambiarEstadoEvento = async (id, activo) => {
+  const { rows } = await consultar(
+    `UPDATE public.eventos
+     SET activo = $2
+     WHERE id = $1
+     RETURNING ${COLUMNAS}`,
+    [Number(id), activo]
+  );
 
-  eventos[indice].activo = activo;
-  return eventos[indice];
+  return aEvento(rows[0]);
 };
 
 // ========================================
 // Eliminar
 // ========================================
-const eliminarEvento = (id) => {
-  const indice = buscarIndice(id);
-  if (indice === -1) return null;
+const eliminarEvento = async (id) => {
+  const { rows } = await consultar(
+    `DELETE FROM public.eventos
+     WHERE id = $1
+     RETURNING ${COLUMNAS}`,
+    [Number(id)]
+  );
 
-  const [eliminado] = eventos.splice(indice, 1);
-  return eliminado;
+  return aEvento(rows[0]);
 };
 
 // ========================================

@@ -28,8 +28,8 @@ const MENSAJE_AJENO = "No tiene permisos para acceder a este recurso";
 // ========================================
 // Es la diferencia entre autorizar y confiar: el id del JWT viene firmado por
 // el servidor, cualquier otro id lo escribe el cliente.
-const asistenteDelToken = (req) =>
-  asistentesService.buscarAsistentePorUsuario(req.usuario.id);
+const asistenteDelToken = async (req) =>
+  await asistentesService.buscarAsistentePorUsuario(req.usuario.id);
 
 // ========================================
 // Debe existir usuario autenticado
@@ -49,12 +49,12 @@ const sinUsuario = (req, res) => {
 // Autorizar el acceso a los datos de un asistente
 // Para GET /api/boletas/asistente/:asistenteId
 // ========================================
-const autorizarAsistentePropio = (req, res, next) => {
+const autorizarAsistentePropio = async (req, res, next) => {
   if (sinUsuario(req, res)) return;
 
   if (ROLES_DE_MOSTRADOR.includes(req.usuario.rol)) return next();
 
-  const propio = asistenteDelToken(req);
+  const propio = await asistenteDelToken(req);
 
   if (!propio) {
     return res.status(403).json({ mensaje: MENSAJE_SIN_ASISTENTE });
@@ -74,10 +74,10 @@ const autorizarAsistentePropio = (req, res, next) => {
 // Autorizar el acceso a una boleta
 // Para GET /api/boletas/:id
 // ========================================
-const autorizarAccesoBoleta = (req, res, next) => {
+const autorizarAccesoBoleta = async (req, res, next) => {
   if (sinUsuario(req, res)) return;
 
-  const boleta = boletasService.obtenerBoletaPorId(req.params.id);
+  const boleta = await boletasService.obtenerBoletaPorId(req.params.id);
 
   if (!boleta) {
     return res.status(404).json({ mensaje: "Boleta no encontrada" });
@@ -85,7 +85,7 @@ const autorizarAccesoBoleta = (req, res, next) => {
 
   if (ROLES_DE_MOSTRADOR.includes(req.usuario.rol)) return next();
 
-  const propio = asistenteDelToken(req);
+  const propio = await asistenteDelToken(req);
 
   if (!propio) {
     return res.status(403).json({ mensaje: MENSAJE_SIN_ASISTENTE });
@@ -108,10 +108,10 @@ const autorizarAccesoBoleta = (req, res, next) => {
 // no decide es si el cambio es legal: la máquina de estados sigue mandando y
 // responde 409 en el controlador. Son dos preguntas distintas y se responden
 // por separado.
-const autorizarCambioEstadoBoleta = (req, res, next) => {
+const autorizarCambioEstadoBoleta = async (req, res, next) => {
   if (sinUsuario(req, res)) return;
 
-  const boleta = boletasService.obtenerBoletaPorId(req.params.id);
+  const boleta = await boletasService.obtenerBoletaPorId(req.params.id);
 
   if (!boleta) {
     return res.status(404).json({ mensaje: "Boleta no encontrada" });
@@ -119,7 +119,7 @@ const autorizarCambioEstadoBoleta = (req, res, next) => {
 
   if (ROLES_DE_MOSTRADOR.includes(req.usuario.rol)) return next();
 
-  const propio = asistenteDelToken(req);
+  const propio = await asistenteDelToken(req);
 
   if (!propio) {
     return res.status(403).json({ mensaje: MENSAJE_SIN_ASISTENTE });
