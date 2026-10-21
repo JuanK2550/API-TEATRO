@@ -125,6 +125,8 @@ distingue las canceladas.
 | Autorización por rol | `autorizarRoles` en 36 endpoints: 401 sin sesión, 403 si el rol no corresponde |
 | Propiedad del dato | Tres guardas en `propiedad.middleware.js`: un asistente solo ve y toca lo suyo |
 | Persistencia | PostgreSQL en Supabase, con TLS y certificado verificado; las reglas críticas también como restricciones de la base |
+| Privilegio mínimo en la base | La API se conecta con `api_teatro`: sin superusuario, sin `BYPASSRLS` y sin poder crear ni borrar tablas |
+| Row Level Security | Activo en las nueve tablas, con política solo para el rol de la aplicación: cualquier otro rol ve cero filas |
 | helmet | Cabeceras de seguridad en todas las respuestas |
 | `x-powered-by` | Deshabilitado con `app.disable("x-powered-by")` |
 | CORS | Origen único desde `ALLOWED_ORIGIN`; métodos GET, POST, PUT, PATCH, DELETE |
@@ -791,7 +793,8 @@ Los comandos se ejecutan desde la raíz del proyecto. El servidor queda en
 | `ADMIN_NOMBRE` | sin valor | Nombre del administrador que se siembra al arrancar |
 | `ADMIN_EMAIL` | sin valor | Su correo |
 | `ADMIN_PASSWORD` | sin valor | Su contraseña. **Solo vive aquí y nunca se imprime** |
-| `DATABASE_URL` | sin valor | Cadena de conexión con Supabase PostgreSQL |
+| `DATABASE_URL` | sin valor | Conexión de la API: rol `api_teatro`, solo datos |
+| `DATABASE_URL_ADMIN` | sin valor | Conexión del dueño, solo para crear o reiniciar la base |
 
 `.env` está en `.gitignore`; `.env.example` es la plantilla y nunca lleva las
 claves reales: solo trae marcadores. **Cada integrante genera su propio

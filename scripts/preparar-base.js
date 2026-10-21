@@ -7,19 +7,44 @@
 //   node scripts/preparar-base.js            # crea el esquema y lo verifica
 //   node scripts/preparar-base.js --reiniciar # borra todo y vuelve a empezar
 //
-// Solo necesita DATABASE_URL en el .env. No imprime la cadena de conexión ni
-// ninguna credencial.
+// No imprime la cadena de conexión ni ninguna credencial.
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { pool, consultar, hayCertificadoPropio } = require("../src/config/database");
+require("dotenv").config();
+
+const { Pool } = require("pg");
+
+// ========================================
+// Esta tarea necesita al dueño de las tablas
+// ========================================
+// Crear y borrar tablas es DDL, y el rol de la aplicación no puede hacerlo a
+// propósito: ese es justamente el punto de tener dos credenciales separadas.
+// Por eso aquí se usa DATABASE_URL_ADMIN cuando existe.
+const cadena = process.env.DATABASE_URL_ADMIN || process.env.DATABASE_URL;
+
+if (!cadena) {
+  console.error("Falta DATABASE_URL_ADMIN (o DATABASE_URL) en el .env");
+  process.exit(1);
+}
+
+const rutaCertificado = path.resolve(__dirname, "..", "certs", "prod-ca-2021.crt");
+const hayCertificadoPropio = fs.existsSync(rutaCertificado);
+
+const ssl = { rejectUnauthorized: true };
+if (hayCertificadoPropio) ssl.ca = fs.readFileSync(rutaCertificado, "utf8");
+
+const pool = new Pool({ connectionString: cadena, ssl, max: 3 });
+
+const consultar = (sql, parametros = []) => pool.query(sql, parametros);
 
 const DIRECTORIO = path.resolve(__dirname, "..", "database");
 
 const PASOS = [
   { archivo: "01_esquema_teatro.sql", que: "nueve tablas, índices y restricciones" },
   { archivo: "02_roles_seguridad.sql", que: "tres roles, RLS y REVOKE" },
-  { archivo: "04_datos_semilla.sql", que: "los datos semilla" }
+  { archivo: "04_datos_semilla.sql", que: "los datos semilla" },
+  { archivo: "05_rol_aplicacion.sql", que: "el rol api_teatro y sus políticas" }
 ];
 
 const TABLAS = [
@@ -137,6 +162,9 @@ const principal = async () => {
       console.log("Los scripts 01 y 04 no se pueden repetir sobre una base con datos.");
       console.log("Para empezar de cero:  node scripts/preparar-base.js --reiniciar\n");
       console.log("Verificando lo que hay…\n");
+      // El rol y sus políticas sí se pueden rehacer sin tocar los datos: el
+      // script 05 es idempotente.
+      await consultar(leer("05_rol_aplicacion.sql"));
     } else {
       for (const paso of PASOS) {
         process.stdout.write(`${paso.archivo.padEnd(26)} ${paso.que}… `);

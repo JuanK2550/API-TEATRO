@@ -150,16 +150,73 @@ Es la misma tabla del bloque 6, que no cambia con la migración.
 
 ---
 
-## 7. Row Level Security
+## 7. El rol de la aplicación y Row Level Security
 
-`02_roles_seguridad.sql` activa RLS en las nueve tablas y **no crea ninguna
-política**. Es intencional: con RLS activo y sin políticas, nadie lee nada por
-la vía directa. Es el estado seguro por defecto.
+### Dos credenciales, no una
 
-La API no se ve afectada porque no entra por `anon` ni `authenticated`: se
-conecta con su propio usuario de PostgreSQL mediante `DATABASE_URL`. Las
-políticas se diseñarán cuando se integre Supabase Auth, y entonces reproducirán
-en la base lo que hoy hacen `roles.middleware.js` y `propiedad.middleware.js`.
+| Variable | Rol | Para qué | Qué puede hacer |
+| -------- | --- | -------- | --------------- |
+| `DATABASE_URL` | `api_teatro` | La que usa la API | Leer y escribir datos en las nueve tablas |
+| `DATABASE_URL_ADMIN` | el dueño | Crear o reiniciar la base | Todo |
+
+Al principio la API se conectaba con el dueño de las tablas. Eso tenía dos
+consecuencias, y la segunda es la que importa aquí:
+
+1. Si la cadena de conexión se filtraba, quien la tuviera podía hacer
+   `DROP TABLE`, no solo leer datos.
+2. **Row Level Security quedaba desactivado de hecho.** El dueño de una tabla
+   no pasa por las políticas, y aquel rol además traía `BYPASSRLS`. Escribir
+   políticas sin cambiar eso habría sido teatro: aparecerían en el informe sin
+   filtrar nada.
+
+`05_rol_aplicacion.sql` crea `api_teatro` sin superusuario, sin `BYPASSRLS`, sin
+`CREATE` sobre el esquema y con `SELECT` solamente sobre `roles`, que se siembra
+una vez y no se toca desde la aplicación.
+
+### Qué se comprobó
+
+| Intento desde `api_teatro` | Resultado |
+| -------------------------- | --------- |
+| Leer eventos, boletas y roles | permitido |
+| Insertar y borrar un evento | permitido |
+| `DROP TABLE boletas` | rechazado: *must be owner of table* |
+| `CREATE TABLE` | rechazado: *permission denied for schema public* |
+| `ALTER TABLE … ADD COLUMN` | rechazado: *must be owner of table* |
+| `UPDATE roles` | rechazado: *permission denied for table roles* |
+| `DISABLE ROW LEVEL SECURITY` | rechazado: *must be owner of table* |
+| Leer `pg_authid` (contraseñas) | rechazado: *permission denied* |
+
+### Las políticas ahora sí se aplican
+
+Con el rol nuevo, RLS deja de ser decorativo. La prueba: se quitó la política de
+`eventos` y el rol pasó a ver **0 filas**; al devolverla, volvió a ver las 12.
+
+Cada tabla tiene una política para `api_teatro`. `anon`, `authenticated` y
+cualquier rol futuro siguen sin ver nada, porque RLS **niega por defecto** a
+quien no tiene política: ya no dependen solo del `REVOKE` de `02`.
+
+### Por qué la política dice `TRUE`
+
+Porque quién puede ver qué fila lo decide Express: `autorizarRoles` mira el rol
+del JWT y las tres guardas de `propiedad.middleware.js` comprueban que la boleta
+o el asistente sean de quien pregunta. La API necesita poder leer cualquier fila
+precisamente para poder responder *"403, esa no es tuya"*.
+
+Para que una política dijera "solo las filas de este usuario", PostgreSQL
+tendría que saber quién es el usuario, y hoy esa identidad vive en nuestro JWT,
+no en la sesión de la base. Llevarla allí es el paso siguiente y tiene dos
+caminos, ninguno gratis:
+
+- **Supabase Auth**, con `auth.uid()` en las políticas. Exige la clave
+  `service_role` y sustituir el login propio, con lo que se rehace el trabajo de
+  los laboratorios 9 y 10.
+- **Una variable de sesión** por petición (`SET LOCAL`), con las políticas
+  leyendo `current_setting`. No rompe la arquitectura actual, pero obliga a que
+  cada consulta vaya dentro de una transacción con esa variable puesta.
+
+Mientras tanto, lo que hay es honesto: una capa que limita el daño si la
+credencial de la API se filtra, y la autorización por fila donde de verdad está,
+que es en Express.
 
 ---
 
