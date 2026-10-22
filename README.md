@@ -1240,10 +1240,9 @@ necesita el valor normal.
   consultas distintas, así que dos peticiones simultáneas podrían pasar ambas
   la comprobación. Quien impide el duplicado es la base: `uq_boletas_butaca` y
   `uq_funciones_sala` hacen que la segunda escritura falle en lugar de vender
-  dos veces la misma butaca. Lo que falta es traducir ese choque: la API aún no
-  reconoce el `23505` de PostgreSQL, así que el perdedor de la carrera recibe
-  un 500 genérico donde correspondería un 409. El dato nunca se corrompe; el
-  código de respuesta es el que miente.
+  dos veces la misma butaca, y `manejarError` traduce ese `23505` al 409 que
+  le corresponde. Sigue siendo una red y no una reserva: la butaca no se
+  bloquea mientras el cliente decide.
 
 ## Documentación de entregas — Lab. No.5, No.6, No.7, No.8, No.9, No.10 y Bloque 7
 

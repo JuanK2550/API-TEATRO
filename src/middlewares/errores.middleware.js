@@ -26,10 +26,45 @@ const codigoDeCliente = (error) => {
 };
 
 // ========================================
+// Choques de unicidad de PostgreSQL
+// La última línea de defensa cuando dos peticiones compiten
+// ========================================
+// Los controllers comprueban la unicidad antes de escribir, pero comprobar y
+// escribir son dos consultas: entre una y otra cabe otra petición. Quien
+// impide de verdad el duplicado es el índice único, y su error llega aquí.
+// Sin esta traducción el perdedor de la carrera recibiría un 500, cuando lo
+// ocurrido es un conflicto del cliente.
+const MENSAJES_UNICIDAD = {
+  uq_funciones_sala: "Ya existe una función programada en esa fecha y hora",
+  uq_boletas_butaca: "La butaca ya está ocupada en esta función",
+  asistentes_documento_key: "Ya existe un asistente con ese documento",
+  asistentes_email_key: "Ya existe un asistente con ese correo electrónico",
+  asistentes_usuario_id_key: "Ese usuario ya está asociado a otro asistente",
+  localidades_codigo_key: "Ya existe una localidad con ese código",
+  localidades_orden_key: "Ya existe una localidad con ese orden",
+  usuarios_email_key: "Ya existe un usuario con ese correo electrónico",
+  boletas_codigo_key: "Ya existe una boleta con ese código"
+};
+
+const CODIGO_UNICIDAD = "23505";
+
+// ========================================
 // Manejar error
 // Registra el detalle en consola y devuelve al cliente un mensaje genérico
 // ========================================
 const manejarError = (error, req, res, next) => {
+  if (error && error.code === CODIGO_UNICIDAD) {
+    console.warn(
+      `Conflicto de unicidad: ${error.constraint || "sin restricción"} en ${req.method} ${req.originalUrl}`
+    );
+
+    return res.status(409).json({
+      mensaje:
+        MENSAJES_UNICIDAD[error.constraint] ||
+        "El registro entra en conflicto con otro que ya existe"
+    });
+  }
+
   const codigoCliente = codigoDeCliente(error);
 
   if (codigoCliente) {
