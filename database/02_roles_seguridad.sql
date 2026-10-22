@@ -44,10 +44,15 @@ ALTER TABLE public.boletas            ENABLE ROW LEVEL SECURITY;
 -- ========================================
 -- Sin acceso directo para los roles de API
 -- ========================================
--- anon y authenticated son los roles con los que entra la API de datos de
--- Supabase. La API_TEATRO no pasa por ahí: se conecta con su propio usuario de
--- PostgreSQL. Quitarles el permiso evita que una tabla quede expuesta por
--- descuido mientras no existan las políticas.
+-- anon, authenticated y service_role son los roles con los que entra la API de
+-- datos de Supabase. La API_TEATRO no pasa por ahí: se conecta con su propio
+-- usuario de PostgreSQL. Quitarles el permiso evita que una tabla quede
+-- expuesta por descuido mientras no existan las políticas.
+--
+-- service_role importa más que los otros dos: es el rol de la clave de
+-- servicio, se salta RLS por diseño, y Supabase le concede todo sobre cada
+-- objeto nuevo de public. Quien tuviera esa clave podría leer y escribir las
+-- nueve tablas por PostgREST sin pasar por la API ni por sus reglas.
 REVOKE ALL ON TABLE
     public.roles,
     public.usuarios,
@@ -58,6 +63,6 @@ REVOKE ALL ON TABLE
     public.funcion_descuentos,
     public.asistentes,
     public.boletas
-FROM anon, authenticated;
+FROM anon, authenticated, service_role;
 
 COMMIT;

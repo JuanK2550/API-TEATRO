@@ -260,6 +260,14 @@ RLS está activo en las nueve tablas. Cada una tiene una política para
 `authenticated` y cualquier rol futuro ven cero filas aunque alguien les conceda
 un `GRANT` por descuido: ya no dependen solo del `REVOKE`.
 
+Con una excepción que conviene decir: `service_role` tiene `rolbypassrls` en
+`true`, así que **a él RLS no lo frena**. Es el rol de la clave de servicio de
+Supabase y está diseñado para saltarse las políticas. Contra ese rol la única
+defensa es quitarle el privilegio, y por eso el `REVOKE` de
+`02_roles_seguridad.sql` lo incluye junto a los otros dos. Comprobado con
+`SET ROLE`: los tres reciben `permission denied` (`42501`) al intentar leer
+`public.boletas`.
+
 ### Por qué la política dice `TRUE`
 
 Porque quién puede ver qué fila lo decide Express: `autorizarRoles` mira el rol
