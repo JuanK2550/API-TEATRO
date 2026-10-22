@@ -10,8 +10,8 @@ El teatro programa obras, conciertos, cine y actos institucionales en una sala
 única, con localidades a distintas distancias del escenario. La API gestiona el
 flujo completo, desde el catálogo de eventos hasta la validación de la boleta en
 la puerta. El precio, el código y el estado de las boletas los calcula el
-servidor. Es un trabajo académico, sin base de datos. El acceso a `/api` exige una
-API Key.
+servidor. Es un trabajo académico; los datos viven en una base PostgreSQL
+alojada en Supabase. El acceso a `/api` exige una API Key.
 
 ## Recursos
 
@@ -937,8 +937,12 @@ API_TEATRO/
         └── password.util.js          # bcrypt para las contraseñas
 ```
 
-Flujo: `routes → validadores → controllers → services → data`. Los controllers
-no acceden a los datos; solo los services importan desde `src/data/`.
+Flujo: `routes → validadores → controllers → services → base de datos`. Los
+controllers no acceden a los datos: los services son los únicos que consultan
+PostgreSQL, siempre con consultas parametrizadas y a través del pool de
+[`src/config/database.js`](src/config/database.js). La excepción es
+`apiKeys.service.js`, que sigue leyendo `src/data/apiKeys.js` porque los
+clientes registrados no se gestionan por la API.
 
 ## Endpoints
 
@@ -1195,8 +1199,9 @@ necesita el valor normal.
 
 ## Limitaciones conocidas
 
-- Los clientes están en memoria. Deshabilitar o añadir uno exige editar
-  `src/data/apiKeys.js` y reiniciar; no hay endpoint para gestionarlos.
+- Los clientes de la API Key son lo único que queda en memoria. Deshabilitar o
+  añadir uno exige editar `src/data/apiKeys.js` y reiniciar; no hay endpoint
+  para gestionarlos. El resto de los datos vive en PostgreSQL.
 - Por el registro público no se puede crear un administrador, ni siquiera a
   propósito. El primero sale de `crearAdministradorInicial()`, que lo siembra
   desde el `.env` al arrancar; los demás, de `POST /api/usuarios`.
@@ -1231,9 +1236,14 @@ necesita el valor normal.
 - No hay registro de auditoría. Un administrador puede crear usuarios y asociar
   cuentas, pero no queda constancia de quién lo hizo ni cuándo.
 - Sin HTTPS: `Strict-Transport-Security` solo tiene efecto sobre TLS.
-- Concurrencia: Node procesa las peticiones en un solo hilo y las operaciones
-  sobre los arrays son síncronas. Con una base de datos haría falta una
-  transacción o un índice único para asignar butacas.
+- Concurrencia: las comprobaciones de negocio y la escritura ocurren en dos
+  consultas distintas, así que dos peticiones simultáneas podrían pasar ambas
+  la comprobación. Quien impide el duplicado es la base: `uq_boletas_butaca` y
+  `uq_funciones_sala` hacen que la segunda escritura falle en lugar de vender
+  dos veces la misma butaca. Lo que falta es traducir ese choque: la API aún no
+  reconoce el `23505` de PostgreSQL, así que el perdedor de la carrera recibe
+  un 500 genérico donde correspondería un 409. El dato nunca se corrompe; el
+  código de respuesta es el que miente.
 
 ## Documentación de entregas — Lab. No.5, No.6, No.7, No.8, No.9, No.10 y Bloque 7
 
