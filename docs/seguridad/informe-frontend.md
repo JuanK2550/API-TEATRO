@@ -118,7 +118,7 @@ Después se abrió la Sala en la cartelera y en la ficha del evento:
 
 En pantalla el título se lee literalmente `Bernarda " onmouseover="alert(1)` y la
 descripción `&lt;img src=x onerror=alert(1)&gt;`. Texto, no marcado. La captura
-está en `.impeccable/review/xss-como-texto-escritorio.png`. El evento se devolvió
+está en [`capturas/xss-como-texto.png`](capturas/xss-como-texto.png). El evento se devolvió
 a su contenido original al terminar la prueba.
 
 ### La segunda barrera: la CSP

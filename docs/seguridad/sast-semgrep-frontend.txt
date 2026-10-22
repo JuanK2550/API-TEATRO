@@ -105,7 +105,7 @@ Resultado en la Sala, en la cartelera y en la ficha del evento:
 
 El título se lee en pantalla como Bernarda " onmouseover="alert(1) y la
 descripción como &lt;img src=x onerror=alert(1)&gt;: texto, no marcado. La
-captura está en .impeccable/review/xss-como-texto-escritorio.png.
+captura está en docs/seguridad/capturas/xss-como-texto.png.
 
 El evento se devolvió a su contenido original al terminar.
 
