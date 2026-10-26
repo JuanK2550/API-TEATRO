@@ -1,0 +1,61 @@
+API_TEATRO — Bloque 8 — SAST con Semgrep
+Fecha: 2026-10-26 17:30
+
+Reglas: p/javascript, p/nodejs, p/owasp-top-ten
+Alcance: src/ scripts/ frontend/ pruebas/
+
+Ejecutado con la imagen oficial en Docker, porque Smart App Control de
+Windows bloquea semgrep-core.exe instalado de forma nativa. No se
+desactivo esa proteccion: se uso el contenedor.
+
+$ docker run --rm -v <proyecto>:/src -w /src semgrep/semgrep \
+    semgrep scan --config=p/javascript --config=p/nodejs \
+    --config=p/owasp-top-ten --metrics=off --no-git-ignore \
+    --exclude=node_modules --exclude=.git \
+    src scripts frontend pruebas
+
+================================================================
+               
+               
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 78 files with 563 Code rules:
+                                                                                                                        
+  Language      Rules   Files          Origin      Rules                                                                
+ ─────────────────────────────        ───────────────────                                                               
+  <multilang>       6      78          Community     563                                                                
+  js               68      68                                                                                           
+  bash              1       1                                                                                           
+  html              1       1                                                                                           
+                                                                                                                        
+                
+                
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ Scan completed successfully.
+ • Findings: 0 (0 blocking)
+ • Rules run: 76
+ • Targets scanned: 78
+ • Parsed lines: ~100.0%
+ • No ignore information available
+Ran 76 rules on 78 files: 0 findings.
+(need more rules? `semgrep login` for additional free Semgrep Registry rules)
+
+
+A new version of Semgrep is available. See https://semgrep.dev/docs/upgrading
+If Semgrep missed a finding, please send us feedback to let us know!
+See https://semgrep.dev/docs/reporting-false-negatives/
+
+================================================================
+Lo nuevo que entro en el escaneo respecto al bloque 7
+================================================================
+  scripts/crear-admin.js        el bootstrap del administrador
+  scripts/diagnostico-rls.js    el diagnostico de RLS
+  pruebas/correr.sh             el lanzador de las baterias
+  src/services/usuarios.service.js   reescrito por completo
+  src/config/database.js        con cerrarPool()
+  src/app.js                    sin el bootstrap
+
+Ninguno de los seis produjo hallazgos.

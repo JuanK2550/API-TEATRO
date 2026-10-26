@@ -1,0 +1,50 @@
+API_TEATRO — Bloque 8 — SCA con npm audit
+Fecha: 2026-10-26 17:26
+Node: v24.15.0   npm: 11.12.1
+
+================================================================
+ESTADO INICIAL: tres avisos nuevos desde el bloque 7
+================================================================
+Las dependencias no cambiaron. Lo que cambio son los avisos
+publicados desde entonces:
+
+  body-parser 2.3.0    ALTA       denegacion de servicio por bytes
+                                  sobrantes tras un cuerpo comprimido
+                                  GHSA-27r3-jxmh-p828
+  fast-uri    3.1.8    MODERADA   cuatro avisos: suplantacion de
+                                  esquema, equivalencia de rutas,
+                                  confusion de host e inyeccion de
+                                  esquema
+  ip-address  10.7.2   MODERADA   tiempo cuadratico al comparar un
+                                  identificador de zona
+                                  GHSA-rxp7-6hxx-x8q5
+
+body-parser llega por express y lo usa express.json, asi que el
+aviso alto aplicaba de verdad a esta API. fast-uri llega por
+swagger-jsdoc e ip-address por express-rate-limit.
+
+Se corrigio con 'npm audit fix', sin --force: solo cambios
+compatibles con el rango de versiones ya declarado.
+
+  body-parser 2.3.0  -> 2.4.0
+  fast-uri    3.1.8  -> 3.1.9
+  ip-address  10.7.2 -> 10.7.5
+
+package.json no cambio: solo package-lock.json.
+
+================================================================
+$ npm audit
+================================================================
+found 0 vulnerabilities
+
+================================================================
+$ npm audit --omit=dev     (solo dependencias de produccion)
+================================================================
+found 0 vulnerabilities
+
+================================================================
+Alcance
+================================================================
+paquetes auditados:        173
+dependencias directas:     11
+dependencias de desarrollo: 1

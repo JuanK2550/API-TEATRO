@@ -772,12 +772,26 @@ Requisitos: Node.js 18 o superior (probado en 24.15.0) y npm.
 ```bash
 npm install
 cp .env.example .env
+
+node scripts/preparar-base.js --reiniciar   # esquema, RLS, semilla y vistas
+npm run seed:admin                          # crea el primer administrador
+
 npm run dev     # desarrollo (nodemon)
 npm start       # producción
 ```
 
 Los comandos se ejecutan desde la raíz del proyecto. El servidor queda en
 `http://localhost:3000`.
+
+**`npm start` y `npm run dev` no crean ninguna cuenta.** El primer administrador
+se crea solo con `npm run seed:admin`, un paso explícito que se ejecuta una vez
+al instalar. Montar el servicio y entregar la primera llave maestra son dos
+operaciones distintas, y la segunda no debe repetirse en cada despliegue.
+
+El bootstrap es idempotente: si ya existe cualquier cuenta con rol
+`administrador`, no inserta ni modifica nada. Tampoco convierte en administradora
+una cuenta de otro rol, aunque se le pase su correo. El detalle está en
+[`docs/seguridad/informe-bloque8.md`](docs/seguridad/informe-bloque8.md).
 
 | Variable | Por defecto | Uso |
 | -------- | ----------- | --- |
@@ -790,11 +804,12 @@ Los comandos se ejecutan desde la raíz del proyecto. El servidor queda en
 | `API_KEY_MOVIL` | sin valor | Clave del cliente Aplicación Móvil (deshabilitado) |
 | `JWT_SECRET` | sin valor | Clave con la que se firman y verifican los JWT |
 | `JWT_EXPIRES_IN` | `1h` | Cuánto dura un token |
-| `ADMIN_NOMBRE` | sin valor | Nombre del administrador que se siembra al arrancar |
+| `ADMIN_NOMBRE` | sin valor | Nombre del primer administrador. **Solo lo usa `seed:admin`** |
 | `ADMIN_EMAIL` | sin valor | Su correo |
-| `ADMIN_PASSWORD` | sin valor | Su contraseña. **Solo vive aquí y nunca se imprime** |
+| `ADMIN_PASSWORD` | sin valor | Su contraseña, de 12 caracteres o más. **Solo vive aquí y nunca se imprime** |
 | `DATABASE_URL` | sin valor | Conexión de la API: rol `api_teatro`, solo datos |
 | `DATABASE_URL_ADMIN` | sin valor | Conexión del dueño, solo para crear o reiniciar la base |
+| `DATABASE_URL_PRUEBAS_ADMIN` | sin valor | Opcional. Proyecto **aparte** para las pruebas BA08 y BA09 |
 
 `.env` está en `.gitignore`; `.env.example` es la plantilla y nunca lleva las
 claves reales: solo trae marcadores. **Cada integrante genera su propio
@@ -1068,6 +1083,7 @@ cada bloque:
 | [`informe-frontend.md`](docs/seguridad/informe-frontend.md) | La Sala: XSS, minimización de datos y sesión en memoria |
 | [`informe-lab10.md`](docs/seguridad/informe-lab10.md) | Autorización, RBAC e IDOR/BOLA |
 | [`informe-bloque7.md`](docs/seguridad/informe-bloque7.md) | Supabase y PostgreSQL: persistencia, rol de privilegio mínimo y RLS |
+| [`informe-bloque8.md`](docs/seguridad/informe-bloque8.md) | Validación integral: bootstrap separado y las 53 pruebas del laboratorio |
 
 | Técnica | Herramienta | Alcance | Resultado |
 | ------- | ----------- | ------- | --------- |

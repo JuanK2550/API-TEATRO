@@ -61,6 +61,25 @@ Al terminar, `03` debe mostrar: tres roles, nueve tablas, `rls_habilitado = true
 en las nueve, diez claves foráneas, los dos índices únicos parciales, las
 restricciones `CHECK` y `capacidad` como columna generada.
 
+### Después de preparar la base: el administrador
+
+La tabla `usuarios` queda vacía a propósito. El primer administrador no viene en
+los datos semilla ni lo crea el arranque de la API: se crea con un paso
+explícito, desde la raíz del proyecto.
+
+```bash
+node scripts/preparar-base.js --reiniciar
+npm run seed:admin
+```
+
+`seed:admin` lee `ADMIN_NOMBRE`, `ADMIN_EMAIL` y `ADMIN_PASSWORD` del `.env`, y
+es idempotente: si ya existe cualquier cuenta con rol `administrador` —aunque
+esté inactiva— no inserta ni modifica nada. Tampoco convierte en administradora
+una cuenta de otro rol, aunque se le pase su correo.
+
+Sin este paso las baterías de pruebas fallan al iniciar sesión, porque todas
+necesitan el administrador para las operaciones de escritura.
+
 ---
 
 ## 4. Modelo de datos
