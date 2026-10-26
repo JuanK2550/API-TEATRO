@@ -141,21 +141,25 @@ se comprobó que el cuerpo no trajera ni el código ni el listado ajeno.
 
 ---
 
-## 4. Diferencias con la matriz del hospital
+## 4. Diferencias con la matriz de referencia
 
-La correspondencia es: **asistente** por paciente, **boleta** por cita,
-**localidad** por consultorio y **taquilla** por médico, solo como rol.
+La matriz de la guía está escrita sobre otro dominio, así que cada prueba se
+tradujo al recurso del teatro que cumple el mismo papel: el **asistente** es la
+persona registrada, la **boleta** el documento que se le emite, la **localidad**
+el espacio donde se sienta, y **taquilla** el rol de mostrador. La diferencia
+importante es que taquilla existe solo como rol sobre `usuarios`: no tiene tabla
+de perfiles ni recursos propios.
 
-| ID | Diferencia y por qué |
-| -- | -------------------- |
-| P15–P21 | El teatro no tiene una tabla de perfiles equivalente a `medicos`: `taquilla` es un rol sobre `usuarios`, sin recursos propios. Se conservó la **forma** de las pruebas sobre `funciones`, que es el recurso con clave ajena activa, regla de unicidad, listado por esa clave y borrado protegido. |
-| P18 | En el hospital asocia un usuario a un perfil de médico. El mecanismo equivalente del teatro es que el administrador cree la cuenta de taquilla con `POST /api/usuarios`, y responde **201**. |
-| P19 | El hospital devuelve 409 al asociar un usuario de otro rol. El teatro responde **400**, porque el rol se valida por lista blanca en el validador, antes de llegar al service. Es una diferencia de capa, no de criterio. |
-| P27 | «Médico inexistente» se traduce a «función inexistente»: la misma clase de error de referencia, con el mismo 400. |
-| P28 | «Médico inactivo» se traduce al estado de la función: solo una función `en_venta` admite boletas. |
-| P29–P30 | «Médico ocupado» y «consultorio ocupado» se traducen a las dos reglas de aforo del teatro: butaca ya vendida y butaca fuera del aforo de la localidad. |
-| P35 | El teatro responde **401** («API Key requerida»), no 403. El enunciado pide verificar el código configurado, y este es el real: `apiKey.middleware.js` distingue ausente 401, inválida 401 y deshabilitada 403. |
-| SEG-04–SEG-07 | El hospital prueba que un médico no vea la agenda de otro. En el teatro no hay agenda de taquilla. Las cuatro filas se reorientaron a comprobar los límites reales de ese rol —no tiene boletas propias, no ve la boletería completa y no ejecuta operaciones administrativas— en lugar de inventar un 403 sobre un recurso que no existe. |
+| ID | Prueba equivalente de la guía | Diferencia y por qué |
+| -- | ----------------------------- | -------------------- |
+| P15–P21 | Alta y gestión de un recurso con perfil propio | El teatro no tiene una tabla de perfiles para `taquilla`, que es un rol sobre `usuarios` sin recursos propios. Se conservó la **forma** de las pruebas sobre `funciones`, que es el recurso con clave ajena activa, regla de unicidad, listado por esa clave y borrado protegido. |
+| P18 | Asociar una cuenta a un perfil profesional | Sin tabla de perfiles no hay asociación que probar. El mecanismo equivalente del teatro es que el administrador cree la cuenta de taquilla con `POST /api/usuarios`, y responde **201**. |
+| P19 | Asociar una cuenta cuyo rol no corresponde, con 409 | El teatro responde **400**, porque el rol se valida por lista blanca en el validador, antes de llegar al service. Es una diferencia de capa, no de criterio: el intento se rechaza igual. |
+| P27 | Referencia a un recurso inexistente | Se traduce a «función inexistente»: la misma clase de error de referencia, con el mismo 400. |
+| P28 | Recurso existente pero no disponible | Se traduce al estado de la función: solo una función `en_venta` admite boletas. |
+| P29–P30 | Doble reserva del mismo hueco y del mismo espacio | Se traducen a las dos reglas de aforo del teatro: butaca ya vendida y butaca fuera del aforo de la localidad. |
+| P35 | Acceso sin API Key | El teatro responde **401** («API Key requerida»), no 403. El enunciado pide verificar el código configurado, y este es el real: `apiKey.middleware.js` distingue ausente 401, inválida 401 y deshabilitada 403. |
+| SEG-04–SEG-07 | Un titular de agenda no ve la de otro | En el teatro no hay agenda de taquilla, así que no existe el recurso ajeno que la prueba original mira. Las cuatro filas se reorientaron a comprobar los límites reales de ese rol —no tiene boletas propias, no ve la boletería completa y no ejecuta operaciones administrativas— en lugar de inventar un 403 sobre algo que no existe. |
 
 Ninguna fila se dio por aprobada con evidencias de bloques anteriores. P34 y P36
 se volvieron a ejecutar, aunque ya estuvieran demostradas.
@@ -220,9 +224,10 @@ llega la API a PostgreSQL y si ese rol se salta las políticas.
 
 Tener RLS activado no basta. Si la conexión usa el dueño de las tablas o un rol
 con `BYPASSRLS`, las políticas no se evalúan y la seguridad de filas es
-decorativa. En el laboratorio del hospital esa es justamente la situación; aquí
-el script confirma lo contrario, y sale con código 1 si alguna de las seis
-condiciones deja de cumplirse.
+decorativa, y es una situación fácil de alcanzar sin darse cuenta: basta
+conectarse con la credencial que se usó para crear las tablas. Aquí el script
+confirma lo contrario, y sale con código 1 si alguna de las seis condiciones
+deja de cumplirse.
 
 ---
 
