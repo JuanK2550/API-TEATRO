@@ -5,6 +5,7 @@
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
+    "seed:admin": "node scripts/crear-admin.js",
     "dev": "nodemon src/app.js"
   },
   "keywords": [],
