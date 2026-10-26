@@ -1260,7 +1260,7 @@ necesita el valor normal.
   le corresponde. Sigue siendo una red y no una reserva: la butaca no se
   bloquea mientras el cliente decide.
 
-## Documentación de entregas — Lab. No.5, No.6, No.7, No.8, No.9, No.10 y Bloque 7
+## Documentación de entregas — Lab. No.5, No.6, No.7, No.8, No.9, No.10 y Bloques 7 y 8
 
 - [Pruebas SCA + SAST + DAST y levantamiento de la API](docs/entregas/LEVANTAMIENTO%20DE%20LA%20API%20MAS%20PRUEBAS.pdf)
 - [Laboratorio 5: integridad referencial y API Keys](docs/entregas/Integridad%20referencial%20%2B%20API%20Keys.pdf)
@@ -1270,6 +1270,7 @@ necesita el valor normal.
 - [Laboratorio 9: autenticación con JWT](docs/entregas/Autenticaci%C3%B3n%20con%20JWT%20-%20API_TEATRO.pdf)
 - [Laboratorio 10: autorización segura, RBAC e IDOR/BOLA](docs/entregas/Autorizaci%C3%B3n%20Segura%20en%20APIs%20REST%20-%20API%20-%20TEATRO.pdf)
 - [Bloque 7: Supabase, PostgreSQL y persistencia segura](docs/entregas/Bloque%207%20-%20Supabase%20y%20PostgreSQL%20-%20persistencia%20segura%20-%20API_TEATRO.pdf)
+- [Bloque 8: bootstrap del administrador y validación integral](docs/entregas/BLOQUE%208%20-%20bootstrap%20validacion%20API_TEATRO.pdf)
 
 ## Integrantes
 
