@@ -1,7 +1,7 @@
 // ========================================
 // Importaciones
 // ========================================
-const { consultar } = require("../config/database");
+const { consultar, pool } = require("../config/database");
 const {
   generarPasswordHash,
   verificarPassword
@@ -154,32 +154,112 @@ const verificarCredenciales = async (email, password) => {
 // contraseña: un log con la contraseña del administrador es tan grave como
 // escribirla en el código, porque los registros se copian, se comparten y se
 // suben a sistemas de monitoreo.
+const LONGITUD_MINIMA_PASSWORD = 12;
+const FORMATO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// La clave del bloqueo asesor. Dos ejecuciones simultáneas del bootstrap se
+// serializan; cualquier otra cosa que escriba en usuarios no se ve afectada.
+const CLAVE_BLOQUEO_BOOTSTRAP = [7505, 1];
+
 const crearAdministradorInicial = async () => {
-  const nombre = process.env.ADMIN_NOMBRE;
-  const email = process.env.ADMIN_EMAIL;
+  const nombre = process.env.ADMIN_NOMBRE?.trim();
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const password = process.env.ADMIN_PASSWORD;
 
   if (!nombre || !email || !password) {
-    console.warn(
-      "Administrador inicial no configurado: faltan ADMIN_NOMBRE, ADMIN_EMAIL o ADMIN_PASSWORD"
+    throw new Error(
+      "Faltan las variables ADMIN_NOMBRE, ADMIN_EMAIL o ADMIN_PASSWORD"
     );
-    return null;
   }
 
-  const existente = await obtenerUsuarioPorEmail(email);
-  if (existente) return existente;
+  if (password.length < LONGITUD_MINIMA_PASSWORD) {
+    throw new Error(
+      `La contraseña inicial debe tener al menos ${LONGITUD_MINIMA_PASSWORD} caracteres`
+    );
+  }
 
+  if (!FORMATO_EMAIL.test(email)) {
+    throw new Error("ADMIN_EMAIL no tiene un formato válido");
+  }
+
+  // El hash se calcula fuera de la transacción: bcrypt tarda, y mantener un
+  // bloqueo abierto mientras tanto retrasaría a cualquier otra ejecución.
   const passwordHash = await generarPasswordHash(password);
-  const administrador = await insertarUsuario(
-    nombre,
-    email,
-    passwordHash,
-    "administrador"
-  );
 
-  console.log("Administrador inicial creado");
+  const cliente = await pool.connect();
+  let enTransaccionAbierta = false;
 
-  return administrador;
+  try {
+    await cliente.query("BEGIN");
+    enTransaccionAbierta = true;
+
+    await cliente.query(
+      "SELECT pg_advisory_xact_lock($1, $2)",
+      CLAVE_BLOQUEO_BOOTSTRAP
+    );
+
+    // Cualquier administrador cuenta, aunque esté inactivo: reactivarlo es una
+    // operación administrativa, no trabajo del bootstrap.
+    const administradores = await cliente.query(
+      `SELECT u.id
+       FROM public.usuarios u
+       INNER JOIN public.roles r ON r.id = u.rol_id
+       WHERE r.nombre = 'administrador'
+       LIMIT 1`
+    );
+
+    if (administradores.rows.length > 0) {
+      await cliente.query("COMMIT");
+      enTransaccionAbierta = false;
+
+      return { creado: false, motivo: "ADMINISTRADOR_EXISTENTE" };
+    }
+
+    // Si el correo ya es de otra cuenta, el bootstrap no la convierte en
+    // administradora: eso sería una elevación de privilegios por el .env.
+    const correoOcupado = await cliente.query(
+      `SELECT id FROM public.usuarios WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+      [email]
+    );
+
+    if (correoOcupado.rows.length > 0) {
+      throw new Error(
+        "El correo del bootstrap ya pertenece a otra cuenta. No se elevarán privilegios."
+      );
+    }
+
+    const rol = await cliente.query(
+      `SELECT id FROM public.roles
+       WHERE nombre = 'administrador' AND activo = TRUE
+       LIMIT 1`
+    );
+
+    if (rol.rows.length === 0) {
+      throw new Error("No existe un rol administrador activo");
+    }
+
+    const creado = await cliente.query(
+      `INSERT INTO public.usuarios
+         (rol_id, nombre, email, password_hash, activo)
+       VALUES ($1, $2, $3, $4, TRUE)
+       RETURNING id, nombre, email, activo`,
+      [rol.rows[0].id, nombre, email, passwordHash]
+    );
+
+    await cliente.query("COMMIT");
+    enTransaccionAbierta = false;
+
+    return {
+      creado: true,
+      motivo: "ADMINISTRADOR_CREADO",
+      usuario: creado.rows[0]
+    };
+  } catch (error) {
+    if (enTransaccionAbierta) await cliente.query("ROLLBACK");
+    throw error;
+  } finally {
+    cliente.release();
+  }
 };
 
 // ========================================

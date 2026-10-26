@@ -135,11 +135,22 @@ const enTransaccion = async (trabajo) => {
 };
 
 // ========================================
+// Cierre controlado de conexiones
+// Lo necesitan los scripts sueltos, no el servidor
+// ========================================
+// Sin esto un script termina su trabajo y el proceso se queda vivo, porque el
+// pool mantiene conexiones abiertas esperando más consultas.
+const cerrarPool = async () => {
+  await pool.end();
+};
+
+// ========================================
 // Exportaciones
 // ========================================
 module.exports = {
   pool,
   consultar,
   enTransaccion,
+  cerrarPool,
   hayCertificadoPropio
 };

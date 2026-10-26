@@ -27,8 +27,6 @@ const seguridadRoutes = require("./routes/seguridad.routes");
 const authRoutes = require("./routes/auth.routes");
 const usuariosRoutes = require("./routes/usuarios.routes");
 
-const usuariosService = require("./services/usuarios.service");
-
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./docs/swagger");
 
@@ -175,24 +173,12 @@ app.use(manejarError);
 
 // ========================================
 // Arranque del servidor
-// Primero el administrador inicial, después se abre el puerto
+// Solo abre el puerto: no crea ni toca ninguna cuenta
 // ========================================
-// El orden importa: si el servidor atendiera peticiones antes de sembrar el
-// administrador, habría una ventana en la que las operaciones administrativas
-// no tendrían a nadie que pudiera ejecutarlas. Por eso el listen va dentro del
-// then, no al lado.
-usuariosService
-  .crearAdministradorInicial()
-  .then(() => {
-    app.listen(PUERTO, () => {
-      console.log(`Servidor escuchando en http://localhost:${PUERTO}`);
-      console.log(`Swagger UI: http://localhost:${PUERTO}/api-docs`);
-      console.log(`OpenAPI JSON: http://localhost:${PUERTO}/openapi.json`);
-    });
-  })
-  .catch((error) => {
-    console.error("No se pudo preparar el administrador inicial:", error);
-    process.exit(1);
-  });
+app.listen(PUERTO, () => {
+  console.log(`Servidor escuchando en http://localhost:${PUERTO}`);
+  console.log(`Swagger UI: http://localhost:${PUERTO}/api-docs`);
+  console.log(`OpenAPI JSON: http://localhost:${PUERTO}/openapi.json`);
+});
 
 module.exports = app;
