@@ -11,7 +11,32 @@ El teatro programa obras, conciertos, cine y actos institucionales en una sala
 flujo completo, desde el catálogo de eventos hasta la validación de la boleta en
 la puerta. El precio, el código y el estado de las boletas los calcula el
 servidor. Es un trabajo académico; los datos viven en una base PostgreSQL
-alojada en Supabase. El acceso a `/api` exige una API Key.
+alojada en Supabase. El acceso a `/api` va por capas: la cartelera se lee sin
+credenciales, lo que pertenece a alguien exige un JWT, y la API Key se quedó
+donde todavía significa algo, las integraciones que no corren en un navegador.
+
+## Cómo se construyó · recorrido por los bloques
+
+El proyecto creció por laboratorios, y cada uno dejó algo en pie. La tabla dice
+qué añadió cada bloque y en qué archivos vive hoy, para poder ir del enunciado
+al código sin buscar.
+
+| Bloque | Qué añadió | Dónde vive |
+| ------ | ---------- | ---------- |
+| Base (fases 1 a 9) | Los cinco recursos, las reglas de negocio, las máquinas de estado y la documentación OpenAPI | [`src/routes/`](src/routes/), [`src/services/`](src/services/), [`src/docs/swagger.js`](src/docs/swagger.js) |
+| Lab. 5 · Integridad referencial y API Key | Relaciones que no se rompen y la primera credencial: `X-API-Key` | [`apiKey.middleware.js`](src/middlewares/apiKey.middleware.js) |
+| Lab. 6 · Múltiples clientes | Varios clientes registrados y las claves guardadas como hash SHA-256, nunca en claro | [`src/data/apiKeys.js`](src/data/apiKeys.js), [`crypto.util.js`](src/utils/crypto.util.js) |
+| Lab. 7 · Usuarios, hashing y salting | Cuentas con contraseña bajo bcrypt, cost 12 y sal por contraseña | [`password.util.js`](src/utils/password.util.js), [`usuarios.service.js`](src/services/usuarios.service.js) |
+| Lab. 8 · Control del rol | El rol lo asigna el servidor; el administrador inicial se siembra desde el entorno | [`usuarios.controller.js`](src/controllers/usuarios.controller.js) |
+| Lab. 9 · Sesión con JWT | Token HS256 con caducidad y algoritmo fijo al firmar y al verificar | [`jwt.util.js`](src/utils/jwt.util.js), [`auth.middleware.js`](src/middlewares/auth.middleware.js) |
+| La Sala · frontend | Interfaz sin framework: nada se escribe como HTML, sesión en memoria y su propia política de contenido | [`frontend/`](frontend/) |
+| Lab. 10 · Autorización | RBAC con `autorizarRoles` y las guardas de propiedad que cierran el IDOR/BOLA | [`roles.middleware.js`](src/middlewares/roles.middleware.js), [`propiedad.middleware.js`](src/middlewares/propiedad.middleware.js) |
+| Bloque 7 · Persistencia | PostgreSQL en Supabase con TLS verificado, rol de privilegio mínimo y RLS en todas las tablas | [`database/`](database/), [`src/config/database.js`](src/config/database.js) |
+| Bloque 8 · Validación integral | El bootstrap del administrador separado del arranque y la tanda completa de pruebas | [`scripts/`](scripts/), [`pruebas/`](pruebas/) |
+| Bloque 11 · Recuperación y credenciales | Versión de sesión para revocar tokens, recuperación administrativa, códigos de respaldo y el reparto de credenciales que saca la API Key del navegador | [`recuperacion.service.js`](src/services/recuperacion.service.js), [`codigosRecuperacion.service.js`](src/services/codigosRecuperacion.service.js), [`publico.middleware.js`](src/middlewares/publico.middleware.js) |
+
+Cada bloque tiene su informe escrito en [`docs/seguridad/`](docs/seguridad/) y
+su PDF de entrega en [`docs/entregas/`](docs/entregas/).
 
 ## Recursos
 
@@ -119,30 +144,36 @@ distingue las canceladas.
 
 | Medida | Implementación |
 | ------ | -------------- |
-| API Key | Cabecera `X-API-Key` obligatoria en todo `/api`; tres clientes, claves guardadas como hash SHA-256 |
+| API Key | Cabecera `X-API-Key` en las rutas de integración; cuatro clientes registrados, claves guardadas como hash SHA-256 |
 | Contraseñas | Usuarios con bcrypt, cost 12 y sal por contraseña; nunca se guardan ni se devuelven en claro |
 | JWT | Token firmado con HS256 y caducidad; algoritmo fijo al firmar y al verificar |
 | Autorización por rol | `autorizarRoles` en 36 endpoints: 401 sin sesión, 403 si el rol no corresponde |
 | Propiedad del dato | Tres guardas en `propiedad.middleware.js`: un asistente solo ve y toca lo suyo |
+| Revocación de sesión | `version_sesion` en el token y en la base: cambiar la contraseña invalida todos los tokens anteriores |
+| Recuperación de acceso | Token administrativo de 15 minutos y ocho códigos de respaldo, los dos de un solo uso y guardados como hash SHA-256 |
+| Catálogo público | Las nueve lecturas de cartelera no piden credenciales, no muestran datos de nadie y ocultan lo inactivo |
 | Persistencia | PostgreSQL en Supabase, con TLS y certificado verificado; las reglas críticas también como restricciones de la base |
 | Privilegio mínimo en la base | La API se conecta con `api_teatro`: sin superusuario, sin `BYPASSRLS` y sin poder crear ni borrar tablas |
-| Row Level Security | Activo en las nueve tablas, con política solo para el rol de la aplicación: cualquier otro rol ve cero filas |
+| Row Level Security | Activo en las once tablas, con once políticas solo para el rol de la aplicación: cualquier otro rol ve cero filas |
+| Salvaguarda de la base | `preparar-base.js` compara una huella del host y del usuario antes de abrir la conexión; si no es la del teatro, aborta sin ejecutar nada |
 | helmet | Cabeceras de seguridad en todas las respuestas |
 | `x-powered-by` | Deshabilitado con `app.disable("x-powered-by")` |
-| CORS | Origen único desde `ALLOWED_ORIGIN`; métodos GET, POST, PUT, PATCH, DELETE |
-| Rate limiting | 100 peticiones cada 15 min por IP en `/api` (`RATE_LIMIT_MAX`) |
+| CORS | Lista de orígenes desde `ALLOWED_ORIGIN`, separados por comas; métodos GET, POST, PUT, PATCH, DELETE |
+| Rate limiting | Tres límites por IP cada 15 min: 100 en todo `/api` (`RATE_LIMIT_MAX`), 10 en login y registro (`RATE_LIMIT_ACCESO_MAX`) y 10 en las rutas de recuperación (`RATE_LIMIT_RECUPERACION_MAX`) |
 | Límite del cuerpo | `express.json({ limit: "10kb" })` |
 | express-validator | Tipos, rangos, formatos y listas blancas en `tipo`, `clasificacionEdad`, `tipoDescuento` y estados; textos sin `<` ni `>` |
 | Mass Assignment | Los controllers leen solo `matchedData`, nunca `req.body` |
-| Campos del servidor | `precio`, `codigo` y `estado` de boletas; `estado` de funciones; `activo` de eventos; `activa` y `capacidad` de localidades; `rol` y `activo` de usuarios |
+| Campos del servidor | `precio`, `codigo` y `estado` de boletas; `estado` de funciones; `activo` de eventos; `activa` y `capacidad` de localidades; `rol`, `activo` y `version_sesion` de usuarios |
 | Manejo de errores | Mensajes genéricos `{ mensaje }`; el detalle solo se registra en consola |
 
-**Autenticación por API Key.** Toda petición a `/api` debe llevar la cabecera
-`X-API-Key` con la clave de un cliente registrado. La clave se lee solo de la
-cabecera, nunca de la query string, porque las URLs quedan guardadas en
-historiales, registros del servidor y proxies.
+**Autenticación por API Key.** Hasta el bloque 11 la cabecera `X-API-Key` era
+obligatoria en todo `/api`. Hoy la exigen solo las rutas de integración, las que
+no tienen detrás a una persona con sesión; el reparto completo está en
+[Qué credencial pide cada ruta](#qué-credencial-pide-cada-ruta). Donde se exige,
+la clave se lee solo de la cabecera, nunca de la query string, porque las URLs
+quedan guardadas en historiales, registros del servidor y proxies.
 
-Hay tres clientes registrados en `src/data/apiKeys.js`:
+Hay cuatro clientes registrados en `src/data/apiKeys.js`, dos de ellos activos:
 
 | id | Cliente | Variable | Estado |
 | -- | ------- | -------- | ------ |
@@ -250,9 +281,9 @@ El login, además del usuario, devuelve un **token JWT** en el campo `token`.
 Ese token se manda en las siguientes peticiones en la cabecera
 `Authorization: Bearer <token>`, y es lo que identifica a la persona.
 
-**Qué lleva el token**: `sub` con el id del usuario, `email`, `rol`, `iat`
-(cuándo se emitió) y `exp` (cuándo caduca). **Qué no lleva**: la contraseña ni
-su hash, ni ningún otro dato del usuario.
+**Qué lleva el token**: `sub` con el id del usuario, `email`, `rol`, `vs` con la
+versión de sesión, `iat` (cuándo se emitió) y `exp` (cuándo caduca). **Qué no
+lleva**: la contraseña ni su hash, ni ningún otro dato del usuario.
 
 Se firma con **HS256**, fijado en el código al firmar y al verificar. Al
 verificar solo se acepta ese algoritmo, en lugar de fiarse del que anuncia el
@@ -269,15 +300,17 @@ Las credenciales del proyecto, cada una en su sitio:
 
 | Credencial | Qué responde | Dónde viaja |
 | ---------- | ------------ | ----------- |
-| `X-API-Key` | Qué aplicación consume la API | Cabecera, en todo `/api` |
+| `X-API-Key` | Qué aplicación consume la API | Cabecera, en las rutas de integración |
 | email + contraseña | Quién dice ser la persona | Cuerpo de `POST /api/auth/login` |
 | JWT | Sesión temporal de esa persona | Cabecera `Authorization: Bearer` |
 | `rol` dentro del token | Base de la autorización que vendrá | Dentro del JWT |
 
-`GET /api/auth/perfil` exige **las dos credenciales a la vez** y devuelve quién
-es el usuario y qué cliente hizo la petición. Son independientes: el mismo token
-usado desde dos aplicaciones distintas devuelve el mismo `usuario` y distinto
-`clienteApi`.
+`GET /api/auth/perfil` devuelve quién es el usuario y, si la petición llevaba
+clave, qué cliente la hizo. Hasta el bloque 11 exigía **las dos credenciales a
+la vez**; ahora basta el JWT, porque es lo que identifica a la persona, y
+`clienteApi` aparece solo cuando hay clave que informar. Siguen siendo
+independientes: el mismo token usado desde dos aplicaciones distintas devuelve
+el mismo `usuario` y distinto `clienteApi`.
 
 | Situación | Código | Mensaje |
 | --------- | ------ | ------- |
@@ -285,6 +318,73 @@ usado desde dos aplicaciones distintas devuelve el mismo `usuario` y distinto
 | Sin `Bearer` delante, u otro esquema | 401 | Formato de token inválido |
 | Token caducado | 401 | Token expirado |
 | Firma incorrecta, payload alterado o `alg: none` | 401 | Token inválido |
+
+### Revocar una sesión · la versión de sesión
+
+Un JWT es válido porque la firma cuadra, no porque el servidor lo recuerde. Esa
+es su ventaja —no hace falta guardar sesiones— y también su problema: hasta el
+bloque 11 un token robado servía hasta su `exp`, aunque la víctima cambiara la
+contraseña. Cambiarla cerraba la puerta de entrada y dejaba las llaves repartidas.
+
+La solución es un contador. Cada usuario tiene `version_sesion` en la base, que
+empieza en cero y **solo sube**. El token se emite con ese valor en el claim
+`vs`, y en cada petición autenticada `auth.middleware.js` consulta el usuario y
+compara:
+
+| Comprobación | Si falla |
+| ------------ | -------- |
+| El usuario existe y sigue activo | 401 · Cuenta no disponible |
+| `vs` del token = `version_sesion` de la base | 401 · Sesión revocada |
+
+Tres operaciones suben el contador, y las tres significan lo mismo: «esta
+contraseña ya no es la de antes».
+
+- `PATCH /api/auth/cambiar-password`, el propio usuario.
+- `POST /api/auth/restablecer-password`, con un token de recuperación.
+- `POST /api/auth/restablecer-con-codigo`, con un código de respaldo.
+
+El efecto es inmediato y alcanza a **todos** los tokens anteriores, también al
+de la terminal donde se hizo el cambio. No hay lista de tokens revocados que
+mantener: basta un entero por usuario.
+
+El precio es una consulta por petición autenticada, que es exactamente lo que un
+JWT prometía evitar. Se paga a propósito: un token que no se puede revocar no es
+una sesión, es una llave sin cerradura. Y de la misma consulta sale el **rol
+actual**, no el que se copió en el token al emitirlo, así que degradar a un
+usuario también surte efecto en la siguiente petición.
+
+### Recuperar el acceso cuando no hay contraseña
+
+Quien olvida la contraseña no puede entrar, y sin entrar no puede cambiarla. Hay
+dos caminos, y ninguno manda nada por correo: el proyecto no tiene servidor de
+correo, y fingir que lo tiene sería inventar la mitad del mecanismo.
+
+**1 · Recuperación administrativa.** Un administrador emite un token para una
+cuenta con `POST /api/auth/recuperacion/:usuarioId`, y lo entrega por el canal
+que corresponda. El token:
+
+- vive **15 minutos**;
+- sirve **una sola vez**, y el segundo intento responde 400;
+- se guarda como **hash SHA-256**, así que la tabla no contiene nada reutilizable;
+- queda registrado con quién lo emitió, y ese rastro no se borra si luego se
+  elimina al administrador.
+
+Con él, `POST /api/auth/restablecer-password` fija la contraseña nueva y sube la
+versión de sesión.
+
+**2 · Códigos de respaldo.** `POST /api/auth/codigos-recuperacion` genera un lote
+de **ocho** códigos de un solo uso, que se devuelven **una única vez**: después
+solo quedan sus hashes. `POST /api/auth/restablecer-con-codigo` canjea uno por
+una contraseña nueva, y gastar uno deja los otros siete en pie.
+`GET /api/auth/codigos-recuperacion/estado` dice cuántos quedan sin revelarlos, y
+`/regenerar` emite un lote nuevo invalidando el anterior por completo.
+
+Las dos tablas nuevas, `password_reset_tokens` y `codigos_recuperacion`, se
+crearon con el mismo criterio que el resto: RLS activo, privilegios revocados a
+los roles públicos y una política solo para `api_teatro`. Las rutas llevan su
+propio límite de peticiones, `RATE_LIMIT_RECUPERACION_MAX`, porque un código de
+ocho caracteres se puede adivinar a fuerza de intentos y el límite general de
+100 por ventana es demasiado holgado para eso.
 
 ### Autorización: roles y permisos
 
@@ -311,12 +411,13 @@ cuerpo con `matchedData`, que solo tiene contenido cuando la validación corrió
 
 | Código | Significa |
 | ------ | --------- |
-| 401 | No sé quién eres. Falta el token, es inválido o la API Key es incorrecta |
+| 401 | No sé quién eres. Falta el token, es inválido, está revocado, o la API Key es incorrecta |
 | 403 | Sé quién eres y esto no te corresponde |
 
 #### Quién puede hacer qué
 
-Son 48 endpoints en 26 rutas; 36 exigen sesión.
+Son 55 endpoints en 33 rutas: 41 exigen sesión, 3 solo la API Key y 11 son
+públicas.
 
 | Método | Ruta | Quién |
 | ------ | ---- | ----- |
@@ -483,6 +584,61 @@ solo algunos pueden fijar se declara y se controla por rol.
 id en la dirección**: la identidad sale del token, así que no hay ningún número
 que cambiar para editar a otra persona. Por esa ruta el `usuarioId` también da
 403, porque enviarlo sería intentar ligarse a otra cuenta.
+
+## Persistencia · PostgreSQL en Supabase
+
+Hasta el bloque 7 los datos vivían en arreglos de `src/data/`, así que reiniciar
+Node devolvía todo a la semilla. Hoy viven en **once tablas** normalizadas de
+PostgreSQL: `roles`, `usuarios`, `asistentes`, `eventos`, `localidades`,
+`funciones`, `funcion_tarifas`, `funcion_descuentos`, `boletas`,
+`password_reset_tokens` y `codigos_recuperacion`. El contrato de la API no
+cambió al migrar, y el frontend no necesitó un solo ajuste.
+
+**Sin ORM.** Los services escriben SQL y son los únicos que consultan la base,
+siempre con consultas parametrizadas y a través del pool de
+[`src/config/database.js`](src/config/database.js). Los identificadores los
+genera la base con `GENERATED ALWAYS AS IDENTITY`, no el código.
+
+**TLS verificado.** El pool conecta con `rejectUnauthorized: true` contra el
+certificado de `certs/`, que no se versiona. Verificar el certificado es lo que
+distingue cifrar de cifrar *con quien se cree*: sin esa comprobación, un
+intermediario puede presentar el suyo.
+
+**Dos credenciales, y la diferencia importa.**
+
+| Variable | Rol | Para qué |
+| -------- | --- | -------- |
+| `DATABASE_URL` | `api_teatro` | La API. Sin superusuario, sin `BYPASSRLS` y sin poder crear ni borrar tablas |
+| `DATABASE_URL_ADMIN` | el dueño de las tablas | Solo los scripts de esquema de [`database/`](database/) |
+
+Conectándose como dueño de las tablas, PostgreSQL **ignora las políticas RLS**.
+Por eso la API nunca usa `DATABASE_URL_ADMIN`: si lo hiciera, toda la capa de
+RLS sería decorativa.
+
+**Row Level Security** está activo en las once tablas, con once políticas que
+nombran solo a `api_teatro`. Cualquier otro rol —`anon`, `authenticated`,
+`service_role` o uno futuro— ve cero filas, no un error. Las dos vistas,
+`v_programacion` y `v_boletas`, se crearon con `security_invoker = true`: sin
+esa opción una vista consulta las tablas con los permisos de su dueño, que es
+justo el atajo que RLS pretende cerrar.
+
+**La base es la última línea de defensa.** Las reglas críticas no viven solo en
+el código: `uq_funciones_sala` y `uq_boletas_butaca` son índices únicos
+parciales que impiden programar dos funciones en la misma franja o vender dos
+veces la misma butaca, incluso si dos peticiones simultáneas pasaran la
+comprobación del service. `manejarError` traduce ese `23505` al 409 que le
+corresponde.
+
+**La salvaguarda de la huella.** `scripts/preparar-base.js --reiniciar` borra y
+recrea el esquema, y una cadena de conexión no dice a qué proyecto pertenece:
+basta pegar la equivocada en el `.env` para arrasar otra base. Ya pasó una vez.
+Ahora el script compara una huella SHA-256 del host y del usuario con la
+registrada en `database/huella-proyecto.json` **antes de abrir la conexión**, y
+aborta con código 1 si no coinciden. Comprobarlo después del primer `DROP` no
+serviría de nada.
+
+Lo único que sigue en memoria es `src/data/apiKeys.js`: los clientes
+registrados no se gestionan por la API.
 
 ## Frontend · La Sala
 
@@ -909,7 +1065,7 @@ API_TEATRO/
 ├── package.json
 ├── certs/                       # certificado TLS de Supabase (no se versiona)
 ├── database/                    # esquema SQL, roles, semilla y verificación
-├── scripts/                     # preparar-base.js y probar-conexion.js
+├── scripts/                     # preparar-base.js, probar-conexion.js y comprobar-proyecto.js
 ├── docs/entregas/                # informes de entrega en PDF
 ├── docs/seguridad/               # salidas de las herramientas e informes por laboratorio
 ├── frontend/                     # la Sala, servida en /sala
@@ -934,12 +1090,16 @@ API_TEATRO/
 │           ├── misboletas.js
 │           └── entrar.js
 ├── pruebas/                      # scripts de prueba contra el servidor
+│   ├── correr.sh                 # lanza las doce baterías y suma el total
 │   ├── pruebas.js
 │   ├── pruebas-funciones.js
 │   ├── pruebas-boletas.js
 │   ├── pruebas-limites.js
 │   ├── pruebas-cuenta.js
 │   ├── pruebas-autorizacion.js
+│   ├── pruebas-recuperacion.js
+│   ├── pruebas-bloque11.js
+│   ├── pruebas-acceso.js         # los tres límites de peticiones
 │   ├── sesion.js                 # API Key y token del administrador
 │   ├── verificar-a.js
 │   ├── verificar-b.js
@@ -957,13 +1117,7 @@ API_TEATRO/
     │   ├── localidades.controller.js
     │   └── usuarios.controller.js
     ├── data/
-    │   ├── asistentes.js
-    │   ├── boletas.js
-    │   ├── eventos.js
-    │   ├── apiKeys.js
-    │   ├── funciones.js
-    │   ├── localidades.js
-    │   └── usuarios.js
+    │   └── apiKeys.js            # lo único que no vive en PostgreSQL
     ├── docs/
     │   └── swagger.js
     ├── middlewares/
@@ -977,6 +1131,7 @@ API_TEATRO/
     │   ├── funciones.validator.js
     │   ├── localidades.validator.js
     │   ├── propiedad.middleware.js   # guardas de propiedad (IDOR/BOLA)
+    │   ├── publico.middleware.js     # sesión opcional y filtros del catálogo
     │   ├── roles.middleware.js       # autorizarRoles
     │   ├── usuarios.validator.js
     │   └── validar.middleware.js
@@ -993,9 +1148,11 @@ API_TEATRO/
     │   ├── apiKeys.service.js
     │   ├── asistentes.service.js
     │   ├── boletas.service.js
+    │   ├── codigosRecuperacion.service.js
     │   ├── eventos.service.js
     │   ├── funciones.service.js
     │   ├── localidades.service.js
+    │   ├── recuperacion.service.js
     │   └── usuarios.service.js
     └── utils/
         ├── crypto.util.js            # SHA-256 para las API Keys
@@ -1012,9 +1169,11 @@ clientes registrados no se gestionan por la API.
 
 ## Endpoints
 
-48 endpoints en 26 rutas, con 37 schemas. 36 endpoints exigen sesión, y en
-Swagger cada uno lleva `ApiKeyAuth` y `BearerAuth` en el mismo objeto, porque
-hacen falta las dos credenciales a la vez. Swagger UI:
+55 endpoints en 33 rutas, con 37 schemas. El reparto que declara Swagger: **41**
+exigen el JWT, **3** la API Key y **11** no piden credenciales. Hasta el bloque
+11 los endpoints con sesión llevaban `ApiKeyAuth` y `BearerAuth` en el mismo
+objeto, porque hacían falta las dos a la vez; ahora cada uno declara solo lo que
+de verdad exige. Swagger UI:
 <http://localhost:3000/api-docs> · OpenAPI:
 <http://localhost:3000/openapi.json>
 
@@ -1113,9 +1272,16 @@ La columna **Quién** repite la tabla de
 
 | Método | Ruta | Descripción |
 | ------ | ---- | ----------- |
-| POST | `/api/auth/registro` | Registra un usuario; la contraseña se guarda con bcrypt |
+| POST | `/api/auth/registro` | Registra un usuario como `asistente`; la contraseña se guarda con bcrypt |
 | POST | `/api/auth/login` | Comprueba email y contraseña y devuelve un JWT |
-| GET | `/api/auth/perfil` | Devuelve el usuario del JWT y el cliente de la API Key |
+| GET | `/api/auth/perfil` | Devuelve el usuario del JWT y, si llegó clave, su cliente |
+| PATCH | `/api/auth/cambiar-password` | Cambia la propia contraseña y revoca las sesiones anteriores |
+| POST | `/api/auth/recuperacion/:usuarioId` | El administrador emite un token de 15 minutos para una cuenta |
+| POST | `/api/auth/restablecer-password` | Canjea ese token por una contraseña nueva, una sola vez |
+| POST | `/api/auth/codigos-recuperacion` | Genera ocho códigos de un solo uso; se muestran una única vez |
+| GET | `/api/auth/codigos-recuperacion/estado` | Cuántos códigos quedan, sin revelarlos |
+| POST | `/api/auth/codigos-recuperacion/regenerar` | Lote nuevo; invalida el anterior por completo |
+| POST | `/api/auth/restablecer-con-codigo` | Canjea un código de respaldo por una contraseña nueva |
 
 ## Análisis de seguridad
 
@@ -1150,6 +1316,11 @@ cada bloque:
 | SCA, Lab 10 | `npm audit --omit=dev` | 136 paquetes, lo que se despliega | 0 vulnerabilidades |
 | SAST, Lab 10 | Semgrep 1.179.0 con `p/javascript`, `p/nodejs` y `p/owasp-top-ten` | 74 reglas, 66 archivos de `src/` y `frontend/` | 0 hallazgos |
 | IDOR manual | Asistente A y B con boletas propias | `/boletas/asistente/:id`, `/boletas/:id`, `/estado` | Ajenas 403; propias 200 |
+| SCA, Bloque 8 | `npm audit` y `npm audit --omit=dev` | todas las dependencias | 0 vulnerabilidades |
+| SAST, Bloque 8 | Semgrep con `p/javascript`, `p/nodejs` y `p/owasp-top-ten` | 76 reglas, 78 archivos de `src/`, `scripts/`, `frontend/` y `pruebas/` | 0 hallazgos |
+| SCA, Bloque 11 | `npm audit` | todas las dependencias | 4 moderadas, todas en `glob` y `minimatch` |
+| SCA, Bloque 11 | `npm audit --omit=dev` | lo que se despliega | 3 moderadas, por la misma vía |
+| SAST, Bloque 11 | Semgrep con `p/javascript`, `p/nodejs` y `p/owasp-top-ten` | 76 reglas, 85 archivos | 0 hallazgos |
 
 **SCA.** Sin vulnerabilidades. `npm audit fix` no modificó el
 `package-lock.json`. Aviso de obsolescencia, sin vulnerabilidad asociada, en
@@ -1165,6 +1336,18 @@ paquetes**. No se arregla porque el arreglo es peor: `npm audit fix --force`
 instala `nodemon@1.14.10`, de 2018, con sus propios problemas. Preferimos dejar
 constancia del hallazgo, acotado a desarrollo, antes que empeorar el proyecto
 para que una tabla diga cero.
+
+**SCA en el Bloque 11: cuatro moderadas, y por qué tampoco se arreglan.** Están
+en `glob` y en `minimatch`, que entran por `swagger-jsdoc` y por `nodemon`. El
+bloque 11 no añadió ninguna dependencia: todo lo nuevo usa `crypto` de Node, `pg`
+y `express-rate-limit`, que ya estaban. No se arreglan por dos razones. La
+primera es que la única corrección que ofrece npm es **degradar** `swagger-jsdoc`
+de 6.3.0 a 6.2.8, una versión anterior, cambiando un aviso por el riesgo real de
+romper el spec. La segunda es que ninguna es alcanzable desde una petición: los
+dos paquetes resuelven patrones de rutas de archivos, y el único patrón del
+proyecto es la constante `apis: ["./src/routes/*.js"]`, evaluada una vez al
+arrancar. Si algún día un patrón saliera de la entrada del usuario, la
+valoración cambiaría.
 
 **Nota de ejecución de Semgrep.** En el equipo de desarrollo, Smart App Control
 de Windows bloquea `semgrep-core.exe` (evento 3077 de CodeIntegrity). El
@@ -1206,8 +1389,11 @@ devuelve JSON.
 | Límites de venta y regresión | 22 |
 | Asistente ligado a la cuenta | 22 |
 | Autorización, RBAC e IDOR/BOLA | 104 |
+| Recuperación de acceso y códigos de respaldo | 44 |
+| Versión de sesión y reparto de credenciales | 35 |
+| Los tres límites de peticiones | 5 |
 | Checklist de seguridad (35 casos) | 38 |
-| **Total** | **356, 0 fallos** |
+| **Total** | **440, 0 fallos** |
 
 ## Pruebas
 
@@ -1223,6 +1409,9 @@ librería de test: son scripts de Node con `fetch`.
 | `pruebas-limites.js` | Aforo, límite de 6 boletas por asistente y borrado protegido de funciones | 22 |
 | `pruebas-cuenta.js` | Asistente ligado a la cuenta: token obligatorio, aislamiento entre cuentas, edición del perfil propio y Mass Assignment de `usuarioId` | 22 |
 | `pruebas-autorizacion.js` | Autorización: los tres roles, el administrador inicial, la lista blanca del rol, el IDOR de boletas con dos asistentes y las 30 pruebas obligatorias del laboratorio | 104 |
+| `pruebas-recuperacion.js` | Recuperación: token administrativo de un solo uso, caducidad, los ocho códigos de respaldo, el canje y la regeneración del lote | 44 |
+| `pruebas-bloque11.js` | Versión de sesión, revocación al cambiar la contraseña y el reparto de credenciales: catálogo público, ocupación sin datos ajenos y escrituras cerradas | 35 |
+| `pruebas-acceso.js` | Los tres límites de peticiones: `/api`, login y registro, y las rutas de recuperación | 5 |
 | `verificar-a.js` | Casos 1 a 16 del checklist: validación de entrada y Mass Assignment | 16 |
 | `verificar-b.js` | Casos 17 a 31: reglas de negocio e integridad | 16 |
 | `verificar-c.js` | Casos 32 a 35: cuerpo grande, límite de peticiones, cabeceras y error interno sin stack | 6 |
@@ -1234,6 +1423,14 @@ Con el `.env` configurado y el servidor en marcha en otra terminal:
 ```bash
 npm run dev                    # terminal 1
 node pruebas/pruebas.js        # terminal 2
+```
+
+Para la tanda completa hay un lanzador que reinicia la base, corre las doce
+baterías en orden y suma el total. Comprueba la huella del proyecto antes de
+borrar nada, y termina con código 1 si alguna prueba falla:
+
+```bash
+bash pruebas/correr.sh
 ```
 
 `pruebas/sesion.js` centraliza la identidad: carga el `.env` con dotenv, envía
@@ -1255,15 +1452,18 @@ node scripts/preparar-base.js --reiniciar
 ```
 
   Reiniciar Node ya no basta: ese era justamente el objetivo del bloque 7.
-- Salvo `verificar-c.js`, los scripts superan las 100 peticiones por ventana y
-  chocan con el límite. Se lanzan con el límite subido:
+- Salvo `verificar-c.js` y `pruebas-acceso.js`, los scripts superan los límites
+  por ventana y chocan con ellos. Se lanzan con los tres subidos:
 
 ```bash
-RATE_LIMIT_MAX=100000 npm run dev
+RATE_LIMIT_MAX=100000 RATE_LIMIT_ACCESO_MAX=100000 \
+RATE_LIMIT_RECUPERACION_MAX=100000 npm run dev
 ```
 
-`verificar-c.js` es la excepción: comprueba precisamente que el límite salte, y
-necesita el valor normal.
+`verificar-c.js` y `pruebas-acceso.js` son la excepción: comprueban
+precisamente que los límites salten, y necesitan los valores de servicio. Eso
+es lo que hace `correr.sh`, que arranca el servidor con los valores que cada
+batería necesita.
 
 ## Limitaciones conocidas
 
@@ -1275,16 +1475,20 @@ necesita el valor normal.
   desde el `.env` al arrancar; los demás, de `POST /api/usuarios`.
 - `JWT_SECRET` se comprueba cuando se usa, no al arrancar. Si falta, el servidor
   arranca igual y falla al primer login, con un 500.
-- No hay forma de revocar un token antes de que caduque. Mientras no expire
-  sigue sirviendo, aunque el usuario se deshabilite.
-- Si a un usuario le cambian el rol, su token viejo sigue diciendo el rol
-  anterior hasta que expire, porque el rol se copió dentro del token al
-  emitirlo. Importa más desde el Lab 10, porque ahora el rol decide.
-- Las tres vulnerabilidades altas de `npm audit` vienen de `nodemon`, la única
-  dependencia de desarrollo. Con `--omit=dev` no hay ninguna.
-- La API Key del frontend viaja al navegador y es visible para quien lo inspeccione.
-  Identifica a la aplicación, no la protege; sin un proxy en el servidor no hay
-  forma de evitarlo en una aplicación web.
+- Revocar una sesión exige cambiar la contraseña. Desde el bloque 11 eso
+  invalida todos los tokens anteriores, y una cuenta desactivada deja de pasar
+  en la siguiente petición, pero no hay un endpoint de «cerrar mis otras
+  sesiones» que suba la versión sin tocar la contraseña.
+- La revocación cuesta una consulta por petición autenticada, que es justo lo
+  que un JWT prometía evitar. Se paga a propósito, y en una base con más carga
+  sería el primer sitio donde mirar una caché corta.
+- Las cuatro vulnerabilidades moderadas de `npm audit` están en `glob` y
+  `minimatch`, por `swagger-jsdoc` y `nodemon`. Ninguna es alcanzable desde una
+  petición, y el único arreglo que ofrece npm es degradar `swagger-jsdoc`.
+- `POST /api/auth/restablecer-password` y `/restablecer-con-codigo` siguen
+  pidiendo API Key. Quien las usa perdió el acceso y no tiene JWT, y hoy nadie
+  las llama desde el navegador; cuando exista una interfaz de página única habrá
+  que decidir qué credencial les corresponde.
 - `GET /api/boletas/:id` responde 404 antes de mirar el rol, así que cualquier
   sesión puede distinguir una boleta inexistente de una ajena. Es la decisión
   de la guía del laboratorio y se mantuvo, pero lo coherente con el resto sería
