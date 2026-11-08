@@ -6,6 +6,7 @@ const express = require("express");
 const eventosController = require("../controllers/eventos.controller");
 const autenticarJWT = require("../middlewares/auth.middleware");
 const autorizarRoles = require("../middlewares/roles.middleware");
+const { sesionOpcional } = require("../middlewares/publico.middleware");
 const { validar } = require("../middlewares/validar.middleware");
 const {
   validarIdEvento,
@@ -121,6 +122,7 @@ const router = express.Router();
  *   get:
  *     tags: [Eventos]
  *     summary: Lista todos los eventos
+ *     security: []
  *     responses:
  *       200:
  *         description: Listado de eventos
@@ -143,7 +145,7 @@ const router = express.Router();
  *             schema:
  *               $ref: "#/components/schemas/Error"
  */
-router.get("/", eventosController.obtenerEventos);
+router.get("/", sesionOpcional, eventosController.obtenerEventos);
 
 // ========================================
 // GET /api/eventos/:id
@@ -154,6 +156,7 @@ router.get("/", eventosController.obtenerEventos);
  *   get:
  *     tags: [Eventos]
  *     summary: Obtiene un evento por su id
+ *     security: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -187,7 +190,7 @@ router.get("/", eventosController.obtenerEventos);
  *             schema:
  *               $ref: "#/components/schemas/Error"
  */
-router.get("/:id", validarIdEvento, validar, eventosController.obtenerEventoPorId);
+router.get("/:id", sesionOpcional, validarIdEvento, validar, eventosController.obtenerEventoPorId);
 
 // ========================================
 // POST /api/eventos
@@ -206,8 +209,7 @@ router.get("/:id", validarIdEvento, validar, eventosController.obtenerEventoPorI
  *           schema:
  *             $ref: "#/components/schemas/EventoEntrada"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       201:
  *         description: Evento creado
@@ -273,8 +275,7 @@ router.post(
  *           schema:
  *             $ref: "#/components/schemas/EventoEntrada"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Evento actualizado
@@ -346,8 +347,7 @@ router.put(
  *           schema:
  *             $ref: "#/components/schemas/EventoParcial"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Evento actualizado
@@ -420,8 +420,7 @@ router.patch(
  *           schema:
  *             $ref: "#/components/schemas/EstadoEventoEntrada"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Estado del evento actualizado
@@ -487,8 +486,7 @@ router.patch(
  *           type: integer
  *           minimum: 1
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Evento eliminado

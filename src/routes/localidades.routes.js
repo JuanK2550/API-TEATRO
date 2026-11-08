@@ -6,6 +6,7 @@ const express = require("express");
 const localidadesController = require("../controllers/localidades.controller");
 const autenticarJWT = require("../middlewares/auth.middleware");
 const autorizarRoles = require("../middlewares/roles.middleware");
+const { sesionOpcional } = require("../middlewares/publico.middleware");
 const { validar } = require("../middlewares/validar.middleware");
 const {
   validarIdLocalidad,
@@ -121,6 +122,7 @@ const router = express.Router();
  *   get:
  *     tags: [Localidades]
  *     summary: Lista todas las localidades
+ *     security: []
  *     responses:
  *       200:
  *         description: Listado de localidades
@@ -143,7 +145,7 @@ const router = express.Router();
  *             schema:
  *               $ref: "#/components/schemas/Error"
  */
-router.get("/", localidadesController.obtenerLocalidades);
+router.get("/", sesionOpcional, localidadesController.obtenerLocalidades);
 
 // ========================================
 // GET /api/localidades/:id
@@ -154,6 +156,7 @@ router.get("/", localidadesController.obtenerLocalidades);
  *   get:
  *     tags: [Localidades]
  *     summary: Obtiene una localidad por su id
+ *     security: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -189,6 +192,7 @@ router.get("/", localidadesController.obtenerLocalidades);
  */
 router.get(
   "/:id",
+  sesionOpcional,
   validarIdLocalidad,
   validar,
   localidadesController.obtenerLocalidadPorId
@@ -211,8 +215,7 @@ router.get(
  *           schema:
  *             $ref: "#/components/schemas/LocalidadEntrada"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       201:
  *         description: Localidad creada
@@ -284,8 +287,7 @@ router.post(
  *           schema:
  *             $ref: "#/components/schemas/LocalidadEntrada"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Localidad actualizada
@@ -364,8 +366,7 @@ router.put(
  *           schema:
  *             $ref: "#/components/schemas/LocalidadParcial"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Localidad actualizada
@@ -444,8 +445,7 @@ router.patch(
  *           schema:
  *             $ref: "#/components/schemas/EstadoLocalidadEntrada"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Estado de la localidad actualizado
@@ -511,8 +511,7 @@ router.patch(
  *           type: integer
  *           minimum: 1
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Localidad eliminada

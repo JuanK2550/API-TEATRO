@@ -136,8 +136,7 @@ const router = express.Router();
  *     tags: [Asistentes]
  *     summary: Lista todos los asistentes
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Listado de asistentes
@@ -194,8 +193,7 @@ router.get(
  *       Así quien compra por segunda vez no tiene que volver a escribir su
  *       documento, y nadie puede consultar los datos de otra persona.
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Datos de asistente de la cuenta
@@ -254,8 +252,7 @@ router.get(
  *       Solo hace falta la primera vez. El vínculo con la cuenta lo pone el
  *       servidor desde el token: usuarioId no se declara en el validador.
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -331,8 +328,7 @@ router.post(
  *       aquí: es el vínculo con la cuenta y solo lo asigna un administrador,
  *       así que enviarlo responde 403.
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -415,8 +411,7 @@ router.patch(
  *           type: integer
  *           minimum: 1
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Asistente encontrado
@@ -480,8 +475,7 @@ router.get(
  *           schema:
  *             $ref: "#/components/schemas/AsistenteEntrada"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       201:
  *         description: Asistente creado
@@ -554,8 +548,7 @@ router.post(
  *           schema:
  *             $ref: "#/components/schemas/AsistenteEntrada"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Asistente actualizado
@@ -635,8 +628,7 @@ router.put(
  *           schema:
  *             $ref: "#/components/schemas/AsistenteParcial"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Asistente actualizado
@@ -710,8 +702,7 @@ router.patch(
  *           type: integer
  *           minimum: 1
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Asistente eliminado

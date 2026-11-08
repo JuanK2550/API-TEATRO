@@ -1,11 +1,11 @@
 // ========================================
 // Cliente de la API
-// La API Key identifica a la aplicación; el JWT, a la persona
+// El JWT identifica a la persona; el navegador no lleva ninguna clave
 // ========================================
-// La clave llega del servidor en /sala/config.js, leída del .env al arrancar.
-// Nunca se escribe en el repositorio. En un navegador no es secreta: quien abra
-// las herramientas del navegador la ve. Lo que protege de verdad es el JWT, el
-// límite de peticiones y poder revocar este cliente desde apiKeys.js.
+// Hasta el bloque 11 la Sala recibía una API Key en /sala/config.js. Era una
+// contradicción: una clave que el navegador descarga no es secreta, cualquiera
+// la ve en el inspector. Ahora el catálogo se lee sin credenciales —no hay
+// nada privado en él— y todo lo demás viaja con el JWT de quien inició sesión.
 const config = window.TEATRO_CONFIG || {};
 const BASE = config.api || "/api";
 
@@ -46,7 +46,6 @@ export class ErrorApi extends Error {
 // ========================================
 const pedir = async (ruta, opciones = {}) => {
   const cabeceras = {
-    "X-API-Key": config.apiKey || "",
     ...(opciones.cuerpo ? { "Content-Type": "application/json" } : {}),
     ...(sesion.token ? { Authorization: `Bearer ${sesion.token}` } : {})
   };

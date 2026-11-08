@@ -3,6 +3,10 @@
 // ========================================
 const { matchedData } = require("express-validator");
 const eventosService = require("../services/eventos.service");
+const {
+  filtrarEventos,
+  visibleEvento
+} = require("../middlewares/publico.middleware");
 const funcionesService = require("../services/funciones.service");
 
 // ========================================
@@ -18,7 +22,9 @@ const leerDatos = (req) => matchedData(req, { locations: ["body"] });
 // GET todos
 // ========================================
 const obtenerEventos = async (req, res) => {
-  res.status(200).json(await eventosService.obtenerEventos());
+  const eventos = await eventosService.obtenerEventos();
+
+  res.status(200).json(filtrarEventos(eventos, req));
 };
 
 // ========================================
@@ -27,7 +33,9 @@ const obtenerEventos = async (req, res) => {
 const obtenerEventoPorId = async (req, res) => {
   const evento = await eventosService.obtenerEventoPorId(req.params.id);
 
-  if (!evento) {
+  // Un evento desactivado responde 404 al público: decir "existe pero no te lo
+  // enseño" ya sería contar algo.
+  if (!evento || !visibleEvento(evento, req)) {
     return res.status(404).json({ mensaje: "Evento no encontrado" });
   }
 

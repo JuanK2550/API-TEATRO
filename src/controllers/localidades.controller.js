@@ -3,6 +3,10 @@
 // ========================================
 const { matchedData } = require("express-validator");
 const localidadesService = require("../services/localidades.service");
+const {
+  filtrarLocalidades,
+  visibleLocalidad
+} = require("../middlewares/publico.middleware");
 const boletasService = require("../services/boletas.service");
 const funcionesService = require("../services/funciones.service");
 
@@ -19,7 +23,9 @@ const leerDatos = (req) => matchedData(req, { locations: ["body"] });
 // GET todas
 // ========================================
 const obtenerLocalidades = async (req, res) => {
-  res.status(200).json(await localidadesService.obtenerLocalidades());
+  const localidades = await localidadesService.obtenerLocalidades();
+
+  res.status(200).json(filtrarLocalidades(localidades, req));
 };
 
 // ========================================
@@ -28,7 +34,7 @@ const obtenerLocalidades = async (req, res) => {
 const obtenerLocalidadPorId = async (req, res) => {
   const localidad = await localidadesService.obtenerLocalidadPorId(req.params.id);
 
-  if (!localidad) {
+  if (!localidad || !visibleLocalidad(localidad, req)) {
     return res.status(404).json({ mensaje: "Localidad no encontrada" });
   }
 

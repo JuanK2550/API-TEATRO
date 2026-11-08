@@ -38,20 +38,32 @@ const path = require("path");
 // ========================================
 const app = express();
 const PUERTO = process.env.PORT || 3000;
-const ORIGEN_PERMITIDO = process.env.ALLOWED_ORIGIN || "http://localhost:3000";
+// ALLOWED_ORIGIN admite varios orígenes separados por comas: el de la propia
+// API, que sirve la Sala, y el del servidor de desarrollo de la SPA que viene
+// en el bloque siguiente. Lo que no se nombra aquí, no entra.
+const ORIGENES_PERMITIDOS = (process.env.ALLOWED_ORIGIN || "http://localhost:3000")
+  .split(",")
+  .map((origen) => origen.trim())
+  .filter(Boolean);
 const MAXIMO_PETICIONES = Number(process.env.RATE_LIMIT_MAX) || 100;
 
 app.disable("x-powered-by");
 
 // ========================================
 // Middlewares de seguridad
-// Cabeceras de helmet y CORS restringido a un único origen
+// Cabeceras de helmet y CORS restringido a los orígenes declarados
 // ========================================
 app.use(helmet());
 
 app.use(
   cors({
-    origin: ORIGEN_PERMITIDO,
+    // Sin cabecera Origin la petición no viene de un navegador —curl, Postman,
+    // las propias pruebas— y CORS no pinta nada ahí: no es una protección del
+    // servidor, es una regla que el navegador aplica en nombre del usuario.
+    origin: (origen, continuar) =>
+      !origen || ORIGENES_PERMITIDOS.includes(origen)
+        ? continuar(null, true)
+        : continuar(new Error("Origen no permitido por CORS")),
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
   })
 );
@@ -76,10 +88,51 @@ const limitador = rateLimit({
 app.use("/api", limitador);
 
 // ========================================
-// Autenticación mediante API Key
-// Toda petición a /api exige la cabecera X-API-Key
+// Quién exige API Key y quién no
 // ========================================
-app.use("/api", validarApiKey);
+// Hasta el bloque 11 la exigía todo /api, y por eso la Sala recibía la clave
+// desde /sala/config.js. Una clave servida a un navegador no es un secreto:
+// cualquiera la lee en el inspector. Lo que de verdad identifica a la persona
+// es el JWT, y lo que protege las lecturas públicas es que no haya nada
+// privado en ellas.
+//
+// Así que la API Key se queda donde sí significa algo: en las integraciones
+// que no tienen sesión y no son un navegador.
+
+// Recursos cuyo router ya decide qué es público y qué exige JWT.
+const RECURSOS = new Set([
+  "/asistentes",
+  "/boletas",
+  "/eventos",
+  "/funciones",
+  "/localidades",
+  "/usuarios"
+]);
+
+// Rutas de autenticación que se resuelven con JWT, sin API Key.
+const AUTH_CON_SESION = new Set([
+  "/auth/perfil",
+  "/auth/cambiar-password",
+  "/auth/recuperacion",
+  "/auth/codigos-recuperacion"
+]);
+
+// Las dos públicas de verdad: quien entra o se registra todavía no tiene nada.
+const AUTH_PUBLICAS = new Set(["/auth/login", "/auth/registro"]);
+
+app.use("/api", (req, res, next) => {
+  if (req.method === "POST" && AUTH_PUBLICAS.has(req.path)) return next();
+
+  const recurso = "/" + req.path.split("/")[1];
+  if (RECURSOS.has(recurso)) return next();
+
+  const rutaAuth = "/" + req.path.split("/").slice(1, 3).join("/");
+  if (AUTH_CON_SESION.has(rutaAuth)) return next();
+
+  // Lo que queda: /seguridad/cliente y las dos rutas de restablecimiento, que
+  // no tienen sesión porque quien las usa perdió el acceso.
+  return validarApiKey(req, res, next);
+});
 
 // ========================================
 // Ruta raíz
@@ -140,10 +193,9 @@ app.use(
 // protege. Lo que protege es el JWT, el límite de peticiones y poder revocar
 // este cliente desde src/data/apiKeys.js.
 app.get("/sala/config.js", (req, res) => {
-  const configuracion = {
-    api: "/api",
-    apiKey: process.env.API_KEY_WEB || ""
-  };
+  // Desde el bloque 11 no lleva clave: la Sala navega el catálogo sin
+  // credenciales y todo lo demás lo hace con el JWT de quien inicia sesión.
+  const configuracion = { api: "/api" };
 
   // Sin caché: la clave puede rotar y no debe quedarse guardada en el navegador
   // ni en ningún intermediario.

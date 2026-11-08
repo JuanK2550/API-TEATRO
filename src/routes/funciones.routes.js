@@ -6,6 +6,7 @@ const express = require("express");
 const funcionesController = require("../controllers/funciones.controller");
 const autenticarJWT = require("../middlewares/auth.middleware");
 const autorizarRoles = require("../middlewares/roles.middleware");
+const { sesionOpcional } = require("../middlewares/publico.middleware");
 const { validar } = require("../middlewares/validar.middleware");
 const {
   validarIdFuncion,
@@ -217,6 +218,7 @@ const router = express.Router();
  *   get:
  *     tags: [Funciones]
  *     summary: Lista todas las funciones
+ *     security: []
  *     responses:
  *       200:
  *         description: Listado de funciones
@@ -239,7 +241,7 @@ const router = express.Router();
  *             schema:
  *               $ref: "#/components/schemas/Error"
  */
-router.get("/", funcionesController.obtenerFunciones);
+router.get("/", sesionOpcional, funcionesController.obtenerFunciones);
 
 // ========================================
 // GET /api/funciones/evento/:eventoId
@@ -250,6 +252,7 @@ router.get("/", funcionesController.obtenerFunciones);
  *   get:
  *     tags: [Funciones]
  *     summary: Lista las funciones de un evento
+ *     security: []
  *     parameters:
  *       - in: path
  *         name: eventoId
@@ -287,6 +290,7 @@ router.get("/", funcionesController.obtenerFunciones);
  */
 router.get(
   "/evento/:eventoId",
+  sesionOpcional,
   validarEventoIdFuncion,
   validar,
   funcionesController.obtenerFuncionesPorEvento
@@ -301,6 +305,7 @@ router.get(
  *   get:
  *     tags: [Funciones]
  *     summary: Precios por localidad y descuentos habilitados de una función
+ *     security: []
  *     description: Las tarifas se devuelven ordenadas por cercanía al escenario.
  *     parameters:
  *       - in: path
@@ -337,6 +342,7 @@ router.get(
  */
 router.get(
   "/:id/tarifas",
+  sesionOpcional,
   validarIdFuncion,
   validar,
   funcionesController.obtenerTarifasDeFuncion
@@ -351,6 +357,7 @@ router.get(
  *   get:
  *     tags: [Funciones]
  *     summary: Butacas ocupadas de una función
+ *     security: []
  *     description: >
  *       Devuelve solo la localidad, la fila y el número de las butacas tomadas
  *       por boletas no canceladas. No incluye el código de la boleta, su precio
@@ -399,6 +406,7 @@ router.get(
  */
 router.get(
   "/:id/ocupacion",
+  sesionOpcional,
   validarIdFuncion,
   validar,
   funcionesController.obtenerOcupacionDeFuncion
@@ -413,6 +421,7 @@ router.get(
  *   get:
  *     tags: [Funciones]
  *     summary: Obtiene una función por su id
+ *     security: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -446,7 +455,7 @@ router.get(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  */
-router.get("/:id", validarIdFuncion, validar, funcionesController.obtenerFuncionPorId);
+router.get("/:id", sesionOpcional, validarIdFuncion, validar, funcionesController.obtenerFuncionPorId);
 
 // ========================================
 // POST /api/funciones
@@ -465,8 +474,7 @@ router.get("/:id", validarIdFuncion, validar, funcionesController.obtenerFuncion
  *           schema:
  *             $ref: "#/components/schemas/FuncionEntrada"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       201:
  *         description: Función creada
@@ -541,8 +549,7 @@ router.post(
  *           schema:
  *             $ref: "#/components/schemas/FuncionEntrada"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Función actualizada
@@ -626,8 +633,7 @@ router.put(
  *           schema:
  *             $ref: "#/components/schemas/EstadoFuncion"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Estado de la función actualizado
@@ -708,8 +714,7 @@ router.patch(
  *           schema:
  *             $ref: "#/components/schemas/FuncionParcial"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Función actualizada
@@ -784,8 +789,7 @@ router.patch(
  *           type: integer
  *           minimum: 1
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Función eliminada

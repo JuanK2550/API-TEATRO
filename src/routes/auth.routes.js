@@ -2,16 +2,56 @@
 // Importaciones
 // ========================================
 const express = require("express");
+const { rateLimit } = require("express-rate-limit");
 
 const authController = require("../controllers/auth.controller");
 const autenticarJWT = require("../middlewares/auth.middleware");
 const { validar } = require("../middlewares/validar.middleware");
+const autorizarRoles = require("../middlewares/roles.middleware");
 const {
   validarRegistro,
-  validarLogin
+  validarLogin,
+  validarCambioPassword,
+  validarGenerarRecuperacion,
+  validarRestablecimiento,
+  validarGenerarCodigos,
+  validarRestablecerConCodigo
 } = require("../middlewares/auth.validator");
 
 const router = express.Router();
+
+// ========================================
+// Límite de las operaciones de recuperación
+// ========================================
+// Más estrecho que el general de la API: estas rutas aceptan un token o un
+// código de un solo uso, y probar muchos seguidos es la única forma de
+// atacarlos. Diez intentos por ventana dejan sitio para equivocarse y ninguno
+// para tantear.
+// El máximo se puede subir por entorno, igual que RATE_LIMIT_MAX: una batería
+// de pruebas supera los diez intentos enseguida. El valor de servicio es 10, y
+// cerrar la terminal lo restablece.
+const MAXIMO_RECUPERACION = Number(process.env.RATE_LIMIT_RECUPERACION_MAX) || 10;
+
+// Login y registro son públicos desde el bloque 11: no hay API Key que frene
+// a quien los golpee en serie, así que el límite deja de ser un adorno y pasa
+// a ser la única barrera contra probar contraseñas o crear cuentas en masa.
+const MAXIMO_ACCESO = Number(process.env.RATE_LIMIT_ACCESO_MAX) || 10;
+
+const limiteAcceso = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: MAXIMO_ACCESO,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { mensaje: "Demasiados intentos. Intente más tarde." }
+});
+
+const limiteRecuperacion = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: MAXIMO_RECUPERACION,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { mensaje: "Demasiados intentos. Intente más tarde." }
+});
 
 // ========================================
 // Esquemas de documentación
@@ -111,6 +151,7 @@ const router = express.Router();
  *   post:
  *     tags: [Autenticación]
  *     summary: Registra un usuario
+ *     security: []
  *     description: >
  *       Crea un usuario guardando su contraseña con bcrypt. **El rol lo asigna
  *       el servidor y el cliente no puede definirlo**: todo registro nace con
@@ -160,7 +201,13 @@ const router = express.Router();
  *             schema:
  *               $ref: "#/components/schemas/Error"
  */
-router.post("/registro", validarRegistro, validar, authController.registrar);
+router.post(
+  "/registro",
+  limiteAcceso,
+  validarRegistro,
+  validar,
+  authController.registrar
+);
 
 // ========================================
 // POST /api/auth/login
@@ -171,6 +218,7 @@ router.post("/registro", validarRegistro, validar, authController.registrar);
  *   post:
  *     tags: [Autenticación]
  *     summary: Inicia sesión
+ *     security: []
  *     description: >
  *       Comprueba el correo y la contraseña contra el hash guardado. Si son
  *       correctas devuelve un JWT en el campo token, que identifica a la
@@ -213,7 +261,13 @@ router.post("/registro", validarRegistro, validar, authController.registrar);
  *             schema:
  *               $ref: "#/components/schemas/Error"
  */
-router.post("/login", validarLogin, validar, authController.login);
+router.post(
+  "/login",
+  limiteAcceso,
+  validarLogin,
+  validar,
+  authController.login
+);
 
 // ========================================
 // GET /api/auth/perfil
@@ -230,8 +284,7 @@ router.post("/login", validarLogin, validar, authController.login);
  *       presentó, junto al cliente dueño de la API Key. Hacen falta las dos
  *       credenciales a la vez.
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Usuario autenticado
@@ -292,6 +345,382 @@ router.get("/perfil", autenticarJWT, (req, res) => {
     clienteApi: req.clienteApi
   });
 });
+
+// ========================================
+// PATCH /api/auth/cambiar-password
+// ========================================
+/**
+ * @openapi
+ * /api/auth/cambiar-password:
+ *   patch:
+ *     tags: [Autenticación]
+ *     summary: Cambiar la propia contraseña
+ *     description: >
+ *       Exige la contraseña actual además del token. Al completarse, la versión
+ *       de sesión sube y todos los tokens emitidos antes dejan de ser válidos:
+ *       hay que iniciar sesión otra vez.
+ *     security: [{ BearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [passwordActual, passwordNueva, confirmarPassword]
+ *             properties:
+ *               passwordActual:
+ *                 type: string
+ *               passwordNueva:
+ *                 type: string
+ *                 minLength: 12
+ *                 maxLength: 72
+ *                 description: Debe incluir mayúscula, minúscula y número
+ *               confirmarPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Contraseña actualizada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Mensaje"
+ *       400:
+ *         description: Datos inválidos, o la nueva contraseña es igual a la actual
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ErrorValidacion"
+ *       401:
+ *         description: Sin token, sesión revocada, o contraseña actual incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       409:
+ *         description: La contraseña cambió durante la operación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ */
+router.patch(
+  "/cambiar-password",
+  autenticarJWT,
+  limiteRecuperacion,
+  validarCambioPassword,
+  validar,
+  authController.cambiarPassword
+);
+
+// ========================================
+// POST /api/auth/recuperacion/:usuarioId
+// ========================================
+/**
+ * @openapi
+ * /api/auth/recuperacion/{usuarioId}:
+ *   post:
+ *     tags: [Autenticación]
+ *     summary: Emitir un token de recuperación para otra cuenta
+ *     description: >
+ *       Solo el administrador. Devuelve el token una única vez y deja
+ *       constancia de quién lo autorizó. Vence a los 15 minutos y anula
+ *       cualquier token anterior de esa cuenta.
+ *     security: [{ BearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: usuarioId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       201:
+ *         description: Token emitido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 mensaje:
+ *                   type: string
+ *                 token:
+ *                   type: string
+ *                   description: 64 caracteres hexadecimales. No se vuelve a mostrar
+ *                 expiraEn:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: Id inválido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ErrorValidacion"
+ *       401:
+ *         description: Sin token o sesión revocada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       403:
+ *         description: El rol autenticado no es administrador
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ *       404:
+ *         description: La cuenta no existe o está deshabilitada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ */
+router.post(
+  "/recuperacion/:usuarioId",
+  autenticarJWT,
+  autorizarRoles("administrador"),
+  limiteRecuperacion,
+  validarGenerarRecuperacion,
+  validar,
+  authController.generarRecuperacion
+);
+
+// ========================================
+// POST /api/auth/restablecer-password
+// No exige sesión: quien la perdió no puede iniciarla
+// ========================================
+/**
+ * @openapi
+ * /api/auth/restablecer-password:
+ *   post:
+ *     tags: [Autenticación]
+ *     summary: Restablecer la contraseña con un token de recuperación
+ *     description: >
+ *       No necesita sesión, por definición. Consume el token, sube la versión
+ *       de sesión y anula los códigos de respaldo que hubiera sin usar.
+ *     security: [{ ApiKeyAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, passwordNueva, confirmarPassword]
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 pattern: "^[a-f0-9]{64}$"
+ *               passwordNueva:
+ *                 type: string
+ *                 minLength: 12
+ *                 maxLength: 72
+ *               confirmarPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Contraseña restablecida
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Mensaje"
+ *       400:
+ *         description: Token inválido, usado o expirado; o contraseña repetida
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ */
+router.post(
+  "/restablecer-password",
+  limiteRecuperacion,
+  validarRestablecimiento,
+  validar,
+  authController.restablecerPassword
+);
+
+// ========================================
+// POST /api/auth/codigos-recuperacion
+// ========================================
+/**
+ * @openapi
+ * /api/auth/codigos-recuperacion:
+ *   post:
+ *     tags: [Autenticación]
+ *     summary: Generar ocho códigos de respaldo
+ *     description: >
+ *       Pide la contraseña actual además del token: es una reautenticación.
+ *       Los códigos se muestran una sola vez; la base guarda solo sus hashes.
+ *     security: [{ BearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [passwordActual]
+ *             properties:
+ *               passwordActual:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Códigos generados
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 mensaje:
+ *                   type: string
+ *                 codigos:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       401:
+ *         description: Sin token, sesión revocada, o contraseña actual incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ */
+router.post(
+  "/codigos-recuperacion",
+  autenticarJWT,
+  limiteRecuperacion,
+  validarGenerarCodigos,
+  validar,
+  authController.generarCodigos
+);
+
+// ========================================
+// GET /api/auth/codigos-recuperacion/estado
+// ========================================
+/**
+ * @openapi
+ * /api/auth/codigos-recuperacion/estado:
+ *   get:
+ *     tags: [Autenticación]
+ *     summary: Cuántos códigos de respaldo quedan sin usar
+ *     security: [{ BearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Cantidad disponible
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 disponibles:
+ *                   type: integer
+ *       401:
+ *         description: Sin token o sesión revocada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ */
+router.get(
+  "/codigos-recuperacion/estado",
+  autenticarJWT,
+  authController.estadoCodigos
+);
+
+// ========================================
+// POST /api/auth/codigos-recuperacion/regenerar
+// Mismo controlador: regenerar es volver a generar
+// ========================================
+/**
+ * @openapi
+ * /api/auth/codigos-recuperacion/regenerar:
+ *   post:
+ *     tags: [Autenticación]
+ *     summary: Sustituir el lote de códigos de respaldo
+ *     description: Los códigos anteriores quedan invalidados.
+ *     security: [{ BearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [passwordActual]
+ *             properties:
+ *               passwordActual:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Códigos regenerados
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Mensaje"
+ *       401:
+ *         description: Sin token, sesión revocada, o contraseña actual incorrecta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ */
+router.post(
+  "/codigos-recuperacion/regenerar",
+  autenticarJWT,
+  limiteRecuperacion,
+  validarGenerarCodigos,
+  validar,
+  authController.generarCodigos
+);
+
+// ========================================
+// POST /api/auth/restablecer-con-codigo
+// ========================================
+/**
+ * @openapi
+ * /api/auth/restablecer-con-codigo:
+ *   post:
+ *     tags: [Autenticación]
+ *     summary: Restablecer la contraseña con un código de respaldo
+ *     description: >
+ *       Tampoco necesita sesión. Gasta solo el código usado y deja los demás
+ *       en pie; anula los tokens administrativos pendientes de esa cuenta.
+ *     security: [{ ApiKeyAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, codigo, passwordNueva, confirmarPassword]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               codigo:
+ *                 type: string
+ *               passwordNueva:
+ *                 type: string
+ *                 minLength: 12
+ *                 maxLength: 72
+ *               confirmarPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Contraseña restablecida
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Mensaje"
+ *       400:
+ *         description: Código o cuenta inválidos, o contraseña repetida
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Error"
+ */
+router.post(
+  "/restablecer-con-codigo",
+  limiteRecuperacion,
+  validarRestablecerConCodigo,
+  validar,
+  authController.restablecerConCodigo
+);
 
 // ========================================
 // Exportaciones

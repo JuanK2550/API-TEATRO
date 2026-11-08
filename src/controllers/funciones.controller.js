@@ -4,6 +4,11 @@
 const { matchedData } = require("express-validator");
 
 const funcionesService = require("../services/funciones.service");
+const {
+  filtrarFunciones,
+  visibleFuncion,
+  visibleEvento
+} = require("../middlewares/publico.middleware");
 const eventosService = require("../services/eventos.service");
 const localidadesService = require("../services/localidades.service");
 const boletasService = require("../services/boletas.service");
@@ -159,7 +164,9 @@ const validarReglasFuncion = async (datos, funcionIdExcluir = null) => {
 // GET todas
 // ========================================
 const obtenerFunciones = async (req, res) => {
-  res.status(200).json(await funcionesService.obtenerFunciones());
+  const funciones = await funcionesService.obtenerFunciones();
+
+  res.status(200).json(filtrarFunciones(funciones, req));
 };
 
 // ========================================
@@ -168,11 +175,15 @@ const obtenerFunciones = async (req, res) => {
 const obtenerFuncionesPorEvento = async (req, res) => {
   const { eventoId } = req.params;
 
-  if (!await eventosService.obtenerEventoPorId(eventoId)) {
+  const evento = await eventosService.obtenerEventoPorId(eventoId);
+
+  if (!evento || !visibleEvento(evento, req)) {
     return res.status(404).json({ mensaje: "Evento no encontrado" });
   }
 
-  res.status(200).json(await funcionesService.obtenerFuncionesPorEvento(eventoId));
+  const funciones = await funcionesService.obtenerFuncionesPorEvento(eventoId);
+
+  res.status(200).json(filtrarFunciones(funciones, req));
 };
 
 // ========================================
@@ -181,7 +192,7 @@ const obtenerFuncionesPorEvento = async (req, res) => {
 const obtenerFuncionPorId = async (req, res) => {
   const funcion = await funcionesService.obtenerFuncionPorId(req.params.id);
 
-  if (!funcion) {
+  if (!funcion || !visibleFuncion(funcion, req)) {
     return res.status(404).json({ mensaje: "Función no encontrada" });
   }
 
@@ -192,6 +203,12 @@ const obtenerFuncionPorId = async (req, res) => {
 // GET tarifas
 // ========================================
 const obtenerTarifasDeFuncion = async (req, res) => {
+  const funcion = await funcionesService.obtenerFuncionPorId(req.params.id);
+
+  if (!funcion || !visibleFuncion(funcion, req)) {
+    return res.status(404).json({ mensaje: "Función no encontrada" });
+  }
+
   const tarifas = await funcionesService.obtenerTarifasDeFuncion(req.params.id);
 
   if (!tarifas) {
@@ -207,11 +224,14 @@ const obtenerTarifasDeFuncion = async (req, res) => {
 // ========================================
 const obtenerOcupacionDeFuncion = async (req, res) => {
   const { id } = req.params;
+  const funcion = await funcionesService.obtenerFuncionPorId(id);
 
-  if (!await funcionesService.obtenerFuncionPorId(id)) {
+  if (!funcion || !visibleFuncion(funcion, req)) {
     return res.status(404).json({ mensaje: "Función no encontrada" });
   }
 
+  // Solo localidadId, fila y numero de las butacas tomadas: ni de quién son,
+  // ni con qué boleta, ni con qué código.
   res.status(200).json(await boletasService.obtenerOcupacionDeFuncion(id));
 };
 

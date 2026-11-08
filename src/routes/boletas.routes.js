@@ -164,8 +164,7 @@ const router = express.Router();
  *     tags: [Boletas]
  *     summary: Lista todas las boletas
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Listado de boletas
@@ -223,8 +222,7 @@ router.get(
  *       para leer las boletas de otra persona. Una cuenta sin datos de
  *       asistente todavía no cumple la condición de la ruta y recibe 403.
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Boletas de la cuenta
@@ -289,8 +287,7 @@ router.get(
  *           type: integer
  *           minimum: 1
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Boletas del asistente
@@ -360,8 +357,7 @@ router.get(
  *           type: integer
  *           minimum: 1
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Boletas de la función
@@ -431,8 +427,7 @@ router.get(
  *           type: integer
  *           minimum: 1
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Boleta encontrada
@@ -503,8 +498,7 @@ router.get(
  *           schema:
  *             $ref: "#/components/schemas/BoletaEntrada"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       201:
  *         description: Boleta creada
@@ -585,8 +579,7 @@ router.post(
  *           schema:
  *             $ref: "#/components/schemas/BoletaEntrada"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Boleta actualizada
@@ -669,8 +662,7 @@ router.put(
  *           schema:
  *             $ref: "#/components/schemas/EstadoBoleta"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Estado de la boleta actualizado
@@ -755,8 +747,7 @@ router.patch(
  *           schema:
  *             $ref: "#/components/schemas/BoletaParcial"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Boleta actualizada
@@ -829,8 +820,7 @@ router.patch(
  *           type: integer
  *           minimum: 1
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: Boleta eliminada

@@ -75,8 +75,7 @@ const router = express.Router();
  *           schema:
  *             $ref: "#/components/schemas/UsuarioAdministrativoEntrada"
  *     security:
- *       - ApiKeyAuth: []
- *         BearerAuth: []
+ *       - BearerAuth: []
  *     responses:
  *       201:
  *         description: Usuario creado
