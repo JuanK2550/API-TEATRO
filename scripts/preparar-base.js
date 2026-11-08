@@ -45,12 +45,17 @@ const PASOS = [
   { archivo: "02_roles_seguridad.sql", que: "tres roles, RLS y REVOKE" },
   { archivo: "04_datos_semilla.sql", que: "los datos semilla" },
   { archivo: "05_rol_aplicacion.sql", que: "el rol api_teatro y sus políticas" },
-  { archivo: "06_vistas.sql", que: "las vistas de consulta" }
+  { archivo: "06_vistas.sql", que: "las vistas de consulta" },
+  { archivo: "07_version_sesion.sql", que: "la versión de sesión de cada cuenta" },
+  { archivo: "08_password_reset_tokens.sql", que: "la recuperación administrativa" },
+  { archivo: "09_codigos_recuperacion.sql", que: "los códigos de respaldo" }
 ];
 
 const TABLAS = [
   "roles",
   "usuarios",
+  "password_reset_tokens",
+  "codigos_recuperacion",
   "eventos",
   "localidades",
   "funciones",
@@ -188,7 +193,7 @@ const principal = async () => {
       return;
     }
 
-    console.log("\nBase de datos lista: 9 tablas, 3 roles, RLS en todas.");
+    console.log(`\nBase de datos lista: ${TABLAS.length} tablas, 3 roles, RLS en todas.`);
   } catch (error) {
     console.error("\nError:", error.message);
     if (/password|autenticación|authentication/i.test(error.message)) {
