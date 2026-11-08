@@ -137,7 +137,7 @@ const pintarPerfil = async (caja) => {
       elemento(
         "p",
         "pliego__nota",
-        "El correo y el rol los acaba de confirmar el servidor en GET /api/auth/perfil, que exige las dos credenciales: la API Key de la aplicación y tu token. El rol lo asigna el teatro, no el formulario. Tu sesión vive solo en la memoria de esta pestaña: al recargar hay que volver a entrar."
+        "El correo y el rol los acaba de confirmar el servidor en GET /api/auth/perfil, que solo responde con tu token. El rol lo asigna el teatro, no el formulario. Tu sesión vive solo en la memoria de esta pestaña: al recargar hay que volver a entrar."
       )
     );
   } catch (error) {

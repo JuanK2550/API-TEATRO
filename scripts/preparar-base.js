@@ -15,6 +15,8 @@ require("dotenv").config();
 
 const { Pool } = require("pg");
 
+const { exigirProyectoDelTeatro } = require("./comprobar-proyecto");
+
 // ========================================
 // Esta tarea necesita al dueño de las tablas
 // ========================================
@@ -143,6 +145,19 @@ const verificar = async () => {
 // ========================================
 const principal = async () => {
   const quiereReiniciar = process.argv.includes("--reiniciar");
+
+  // Antes de abrir la conexión, no después: comprobar tras el primer DROP no
+  // serviría de nada. Una cadena no dice a qué proyecto pertenece, y pegar la
+  // equivocada en el .env no da ningún aviso. Ya pasó una vez.
+  try {
+    const huella = exigirProyectoDelTeatro();
+    console.log(`Proyecto del teatro confirmado (huella ${huella})
+`);
+  } catch (error) {
+    console.error("ABORTADO:", error.message);
+    console.error("No se ejecutó ninguna sentencia.");
+    process.exit(1);
+  }
 
   try {
     const identidad = await consultar(

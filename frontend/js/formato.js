@@ -272,10 +272,13 @@ export const resumenDeErrores = (titulo, problemas) => {
 };
 
 export const avisoDeError = (error) => {
+  // Desde el bloque 11 la Sala no envía ninguna clave: un 401 ya no es la
+  // aplicación que no se identifica, es la persona que no tiene sesión. El
+  // caso del token caducado lo atiende sala.js antes de llegar aquí.
   if (error && error.status === 401) {
     return aviso(
-      "La aplicación no pudo identificarse",
-      "El servidor rechazó la API Key de la aplicación web. Revisa que API_KEY_WEB esté en el .env y reinicia el servidor."
+      "Hay que iniciar sesión",
+      "Esta acción necesita una sesión abierta. Entre con su cuenta y vuelva a intentarlo."
     );
   }
 

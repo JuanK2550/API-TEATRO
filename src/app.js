@@ -187,11 +187,15 @@ app.use(
   })
 );
 
-// La API Key del cliente "Aplicación Web" se entrega al navegador en tiempo de
-// ejecución, leída del .env. Nunca se escribe en un archivo del repositorio.
-// En un navegador esa clave no es secreta: identifica a la aplicación, no la
-// protege. Lo que protege es el JWT, el límite de peticiones y poder revocar
-// este cliente desde src/data/apiKeys.js.
+// Hasta el bloque 11 esta ruta entregaba al navegador la API Key del cliente
+// "Aplicación Web". Era una contradicción: una clave que el navegador descarga
+// la lee cualquiera en el inspector, así que no protegía nada y sí obligaba a
+// tratarla como si fuera un secreto.
+//
+// Ahora solo entrega la ruta base. El catálogo se lee sin credenciales, porque
+// no hay nada privado en él, y todo lo demás viaja con el JWT de quien inició
+// sesión. Aquella clave quedó quemada por los bloques en que se sirvió, así que
+// el cliente 4 está desactivado en src/data/apiKeys.js y no se reactiva.
 app.get("/sala/config.js", (req, res) => {
   // Desde el bloque 11 no lleva clave: la Sala navega el catálogo sin
   // credenciales y todo lo demás lo hace con el JWT de quien inicia sesión.

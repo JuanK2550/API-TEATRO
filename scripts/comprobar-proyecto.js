@@ -31,6 +31,48 @@ const huellaDe = (cadena) => {
   return crypto.createHash("sha256").update(material).digest("hex").slice(0, 16);
 };
 
+// ========================================
+// La comprobación, para usarla desde otro script
+// ========================================
+// Devuelve la huella si coincide y lanza si no. preparar-base.js la llama
+// antes de abrir siquiera la conexión: comprobar después del primer DROP no
+// serviría de nada.
+const exigirProyectoDelTeatro = () => {
+  const cadena = process.env.DATABASE_URL_ADMIN || process.env.DATABASE_URL;
+
+  if (!cadena) {
+    throw new Error("Falta DATABASE_URL_ADMIN (o DATABASE_URL) en el .env");
+  }
+
+  let huella;
+  try {
+    huella = huellaDe(cadena);
+  } catch {
+    throw new Error("La cadena de conexión no tiene un formato válido");
+  }
+
+  if (!fs.existsSync(ARCHIVO)) {
+    throw new Error(
+      "No hay huella registrada. Ejecute: node scripts/comprobar-proyecto.js --registrar"
+    );
+  }
+
+  const esperada = JSON.parse(fs.readFileSync(ARCHIVO, "utf8")).huella;
+
+  if (huella !== esperada) {
+    throw new Error(
+      [
+        "La conexión no es la del proyecto del teatro.",
+        `  huella esperada  ${esperada}`,
+        `  huella de ahora  ${huella}`,
+        "Revise DATABASE_URL_ADMIN antes de tocar la base."
+      ].join("\n")
+    );
+  }
+
+  return huella;
+};
+
 const principal = () => {
   const cadena = process.env.DATABASE_URL_ADMIN || process.env.DATABASE_URL;
 
@@ -76,4 +118,10 @@ const principal = () => {
   console.log(`Proyecto del teatro confirmado (huella ${huella})`);
 };
 
-principal();
+// ========================================
+// Exportaciones
+// ========================================
+module.exports = { exigirProyectoDelTeatro, huellaDe };
+
+// Solo se ejecuta cuando se invoca como script, no al importarlo.
+if (require.main === module) principal();
