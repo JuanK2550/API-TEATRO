@@ -149,7 +149,7 @@ Hay tres clientes registrados en `src/data/apiKeys.js`:
 | 1 | Postman Laboratorio | `API_KEY_POSTMAN` | Activa |
 | 2 | Taquilla del Teatro | `API_KEY_TAQUILLA` | Activa |
 | 3 | Aplicación Móvil | `API_KEY_MOVIL` | Deshabilitada |
-| 4 | Aplicación Web | `API_KEY_WEB` | Activa |
+| 4 | Aplicación Web | `API_KEY_WEB` | **Desactivada** desde el bloque 11 |
 
 Las claves **no se guardan en claro**. Al arrancar, el servidor calcula el hash
 SHA-256 de cada una y solo conserva ese hash. En cada petición calcula el hash
@@ -541,19 +541,31 @@ contenido más estricta que la del resto del servidor.
 El color nunca va solo: cada estado lleva su palabra, y en el plano la butaca
 ocupada además cambia de forma.
 
-### La clave web no es secreta, y está bien que no lo sea
+### La clave web se retiró, y por qué
 
-`GET /sala/config.js` la genera el
-servidor en cada petición leyendo `API_KEY_WEB` del `.env`. Así la clave no está
-escrita en ningún archivo del repositorio.
+Durante varios bloques `GET /sala/config.js` entregaba al navegador la clave
+del cliente «Aplicación Web», leída del `.env` en cada petición. Nunca estuvo
+escrita en el repositorio, pero eso no la volvía secreta: el navegador tenía
+que mandarla en cada llamada, así que cualquiera la veía en el inspector.
 
-Eso no la vuelve secreta: cualquiera que abra las herramientas del navegador la
-ve, porque el navegador tiene que mandarla en cada petición. En una aplicación
-web la API Key **identifica a la aplicación, no la protege**. Lo que protege es
-el JWT, que identifica a la persona; el límite de peticiones, que frena el abuso;
-y poder revocar ese cliente poniendo `activa: false` en `src/data/apiKeys.js` sin
-afectar a los demás. Para que la clave no llegara al navegador habría que meter
-un proxy en el servidor, y eso queda fuera del alcance del laboratorio.
+El bloque 11 deshizo esa contradicción. La Sala ya no envía ninguna clave:
+navega el catálogo sin credenciales —no hay nada privado en él— y todo lo
+demás va con el JWT de quien inició sesión. `config.js` devuelve solo la ruta
+base:
+
+```js
+window.TEATRO_CONFIG = {"api":"/api"};
+```
+
+Y el cliente 4 quedó **desactivado** en `src/data/apiKeys.js`. No es que
+estorbe: es que esa clave estuvo a la vista durante meses y hay que darla por
+conocida. Una clave quemada no se guarda por si acaso, se retira. Si algún día
+hace falta un cliente web con sesión propia, se registra uno nuevo con otra
+clave; esta no se reactiva.
+
+Comprobado: con esa clave, `GET /api/seguridad/cliente` y las dos rutas de
+restablecimiento responden **403 «API Key deshabilitada»**, mientras un cliente
+activo sigue entrando con 200.
 
 ### La sesión vive en memoria
 
@@ -765,6 +777,39 @@ que es la molestia que hoy tiene la Sala. Exige HTTPS y añadir protección
 anti-CSRF, porque una cookie se envía también en peticiones de otros sitios; por
 eso queda fuera del alcance de esta entrega.
 
+## Qué credencial pide cada ruta
+
+Tres capas, y cada una por un motivo distinto.
+
+| Capa | Rutas | Por qué |
+| ---- | ----- | ------- |
+| **Público** | `POST /api/auth/login`, `POST /api/auth/registro` y las nueve lecturas del catálogo | No contienen un solo dato personal, y quien entra o se registra todavía no tiene credenciales |
+| **Solo JWT** | `/api/auth/perfil`, `/cambiar-password`, `/recuperacion/{id}`, `/codigos-recuperacion*`, y todo lo de asistentes, boletas, usuarios y las escrituras del catálogo | Lo que es de alguien necesita saber quién pregunta |
+| **Solo API Key** | `/api/seguridad/cliente`, `/api/auth/restablecer-password`, `/api/auth/restablecer-con-codigo` | Integraciones sin sesión que no corren en un navegador |
+
+Las nueve lecturas públicas son `GET` de `/api/eventos`, `/api/funciones` y
+`/api/localidades`, con sus variantes por id, más las tarifas y la ocupación de
+una función. Es la cartelera del teatro: títulos, fechas, horas, precios y qué
+butacas quedan libres. Lo mismo que cualquier taquilla enseña en la calle.
+
+Con tres límites, que no son adorno:
+
+- **La ocupación no dice de quién es cada butaca.** Devuelve `localidadId`,
+  `fila` y `numero`, y nada más: ni el asistente, ni la boleta, ni su código.
+- **Lo inactivo no se anuncia.** Un evento desactivado no sale en la lista y
+  responde 404 por id; una función solo aparece en `en_venta`, `agotada` o
+  `en_curso`. Al mostrador se le enseña todo, porque lo administra.
+- **Las escrituras siguen exigiendo JWT de administrador**, sin excepción.
+
+Lo decide `sesionOpcional`, un middleware que reconoce el token si viene y
+nunca responde 401. En una ruta pública un token caducado no es un error: se
+ignora y la petición sigue como anónima.
+
+Queda pendiente decidir qué hacer con `/restablecer-password` y
+`/restablecer-con-codigo` cuando exista una interfaz de página única. Hoy piden
+API Key porque quien las usa perdió el acceso y no tiene JWT, y nadie las llama
+desde el navegador. Abrirlas ahora sería aflojar una puerta sin motivo.
+
 ## Instalación y ejecución
 
 Requisitos: Node.js 18 o superior (probado en 24.15.0) y npm.
@@ -796,11 +841,13 @@ una cuenta de otro rol, aunque se le pase su correo. El detalle está en
 | Variable | Por defecto | Uso |
 | -------- | ----------- | --- |
 | `PORT` | `3000` | Puerto |
-| `ALLOWED_ORIGIN` | `http://localhost:3000` | Origen permitido por CORS |
-| `RATE_LIMIT_MAX` | `100` | Peticiones por ventana de 15 min |
+| `ALLOWED_ORIGIN` | `http://localhost:3000` | Orígenes permitidos por CORS, separados por comas |
+| `RATE_LIMIT_MAX` | `100` | Peticiones por ventana de 15 min en todo `/api` |
+| `RATE_LIMIT_ACCESO_MAX` | `10` | Intentos de login y registro por ventana |
+| `RATE_LIMIT_RECUPERACION_MAX` | `10` | Intentos en las rutas de recuperación |
 | `API_KEY_POSTMAN` | sin valor | Clave del cliente Postman Laboratorio |
 | `API_KEY_TAQUILLA` | sin valor | Clave del cliente Taquilla del Teatro |
-| `API_KEY_WEB` | sin valor | Clave del cliente Aplicación Web (el frontend) |
+| `API_KEY_WEB` | sin valor | Clave del cliente Aplicación Web, **desactivado** desde el bloque 11 |
 | `API_KEY_MOVIL` | sin valor | Clave del cliente Aplicación Móvil (deshabilitado) |
 | `JWT_SECRET` | sin valor | Clave con la que se firman y verifican los JWT |
 | `JWT_EXPIRES_IN` | `1h` | Cuánto dura un token |
@@ -817,14 +864,18 @@ claves reales: solo trae marcadores. **Cada integrante genera su propio
 administrador. Las tres API Keys son obligatorias: sin ellas el servidor no
 arranca.
 
-En `.env.example` las variables del administrador van así, con el marcador en
-lugar de la contraseña:
+En `.env.example` las tres variables del administrador van con marcador, el
+correo incluido:
 
 ```
-ADMIN_NOMBRE=Administrador Teatro
-ADMIN_EMAIL=admin@teatro.com
-ADMIN_PASSWORD=REEMPLAZAR_CON_PASSWORD_SEGURO
+ADMIN_NOMBRE=REEMPLAZAR_CON_EL_NOMBRE_DEL_ADMINISTRADOR
+ADMIN_EMAIL=REEMPLAZAR_CON_UN_CORREO_REAL_Y_NO_PUBLICADO
+ADMIN_PASSWORD=REEMPLAZAR_CON_PASSWORD_SEGURO_DE_12_O_MAS
 ```
+
+El correo lleva marcador por el mismo motivo que la contraseña: es la mitad de
+unas credenciales. Un ejemplo que parece utilizable acaba copiado tal cual, y
+entonces la dirección del administrador queda publicada en el repositorio.
 
 Genera cada API Key con:
 
@@ -1084,6 +1135,7 @@ cada bloque:
 | [`informe-lab10.md`](docs/seguridad/informe-lab10.md) | Autorización, RBAC e IDOR/BOLA |
 | [`informe-bloque7.md`](docs/seguridad/informe-bloque7.md) | Supabase y PostgreSQL: persistencia, rol de privilegio mínimo y RLS |
 | [`informe-bloque8.md`](docs/seguridad/informe-bloque8.md) | Validación integral: bootstrap separado y las 53 pruebas del laboratorio |
+| [`informe-bloque11.md`](docs/seguridad/informe-bloque11.md) | Recuperación de acceso, versión de sesión y reparto de credenciales |
 
 | Técnica | Herramienta | Alcance | Resultado |
 | ------- | ----------- | ------- | --------- |
