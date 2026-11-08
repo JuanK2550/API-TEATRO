@@ -164,14 +164,17 @@ const principal = async () => {
   );
 
   // ========================================
-  // La puerta: API Key y token
+  // La puerta: qué pide cada capa
   // ========================================
   grupo("La puerta");
 
-  const sinClave = await pedirSinCredenciales(`${BASE}/api/eventos`);
+  // Desde el bloque 11 la cartelera no pide nada: es la pizarra del teatro y
+  // no contiene un solo dato personal. Antes exigía API Key, y eso obligaba a
+  // servirle una clave al navegador, que no es tal cosa.
+  const carteleraPublica = await pedirSinCredenciales(`${BASE}/api/eventos`);
   afirmar(
-    "GET /api/eventos sin API Key responde 401",
-    sinClave.status === 401 ? null : `respondió ${sinClave.status}`
+    "GET /api/eventos sin credenciales responde 200: el catálogo es público",
+    carteleraPublica.status === 200 ? null : `respondió ${carteleraPublica.status}`
   );
 
   await comprobar(
@@ -1233,12 +1236,16 @@ const principal = async () => {
     401
   );
 
-  const boletaSinClave = await pedirSinCredenciales(
+  // Sigue siendo 401, pero ahora lo rechaza el JWT y no la API Key: una boleta
+  // es de alguien, así que nunca es pública.
+  const boletaSinCredenciales = await pedirSinCredenciales(
     `${BASE}/api/boletas/${boletaA && boletaA.id}`
   );
   afirmar(
-    "Leer una boleta sin X-API-Key es 401",
-    boletaSinClave.status === 401 ? null : `respondió ${boletaSinClave.status}`
+    "Leer una boleta sin credenciales es 401",
+    boletaSinCredenciales.status === 401
+      ? null
+      : `respondió ${boletaSinCredenciales.status}`
   );
 
   // ========================================

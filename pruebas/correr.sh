@@ -25,6 +25,13 @@ REGISTRO="${TMPDIR:-/tmp}/api-teatro-pruebas.log"
 # Las demás lo superarían y recibirían 429 donde esperan otra cosa.
 LIMITE_ALTO=100000
 
+# Antes de borrar nada: comprobar que la cadena es la del teatro. Reiniciar
+# una base equivocada es un desastre silencioso, y ya ocurrió una vez.
+if ! node scripts/comprobar-proyecto.js; then
+  echo "  No se ejecuta ninguna batería."
+  exit 1
+fi
+
 BATERIAS=(
   pruebas.js
   pruebas-funciones.js
@@ -32,6 +39,9 @@ BATERIAS=(
   pruebas-limites.js
   pruebas-cuenta.js
   pruebas-autorizacion.js
+  pruebas-recuperacion.js
+  pruebas-bloque11.js
+  pruebas-acceso.js
   verificar-a.js
   verificar-b.js
   verificar-c.js
@@ -52,10 +62,12 @@ for bateria in "${BATERIAS[@]}"; do
     echo "  $bateria: el bootstrap del administrador falló"; continue
   }
 
-  if [ "$bateria" = "verificar-c.js" ]; then
+  # verificar-c.js comprueba el límite general y pruebas-acceso.js el de
+  # login y registro: las dos necesitan los valores de servicio.
+  if [ "$bateria" = "verificar-c.js" ] || [ "$bateria" = "pruebas-acceso.js" ]; then
     node src/app.js > "$REGISTRO" 2>&1 &
   else
-    RATE_LIMIT_MAX=$LIMITE_ALTO node src/app.js > "$REGISTRO" 2>&1 &
+    RATE_LIMIT_MAX=$LIMITE_ALTO       RATE_LIMIT_ACCESO_MAX=$LIMITE_ALTO       RATE_LIMIT_RECUPERACION_MAX=$LIMITE_ALTO       ALLOWED_ORIGIN="http://localhost:3000,http://localhost:5173"       node src/app.js > "$REGISTRO" 2>&1 &
   fi
   until curl -s -o /dev/null http://localhost:3000/ 2>/dev/null; do sleep 1; done
 

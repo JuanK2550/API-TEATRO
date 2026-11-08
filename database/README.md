@@ -61,6 +61,33 @@ Al terminar, `03` debe mostrar: tres roles, nueve tablas, `rls_habilitado = true
 en las nueve, diez claves foráneas, los dos índices únicos parciales, las
 restricciones `CHECK` y `capacidad` como columna generada.
 
+### Las migraciones del bloque 11
+
+Tres scripts que **no reinician nada**: se aplican sobre la base en marcha y
+conservan cuentas, contraseñas y datos. Vienen de la guía del bloque 11, con
+la numeración del proyecto:
+
+| Script del teatro | Script de la guía | Qué hace |
+| ----------------- | ----------------- | -------- |
+| `07_version_sesion.sql` | `11_3_version_sesion.sql` | La columna `version_sesion`, para poder revocar un JWT |
+| `08_password_reset_tokens.sql` | `11_4_password_reset_tokens.sql` | Recuperación autorizada por un administrador |
+| `09_codigos_recuperacion.sql` | `11_4_2_codigos_recuperacion.sql` | Los ocho códigos de respaldo |
+
+Se ejecutan **en ese orden**, y son idempotentes: `ADD COLUMN IF NOT EXISTS`,
+`CREATE TABLE IF NOT EXISTS` y `DROP POLICY IF EXISTS` antes de cada
+`CREATE POLICY`. Repetirlos no rompe nada ni duplica nada.
+
+**La diferencia con los scripts de la guía está en los permisos.** Allí el pool
+se conecta con el dueño de las tablas, que se salta RLS, así que basta con
+revocar a los roles públicos. Aquí la API entra con `api_teatro`, que no es
+dueño y no omite RLS: sin un `GRANT` sobre la tabla, otro sobre la secuencia y
+una política, las dos tablas nuevas no servirían de nada. Los scripts del
+teatro traen las tres cosas, y revocan además a `service_role`, que la guía no
+menciona.
+
+`preparar-base.js` los incluye en su lista de pasos, de modo que una base
+creada desde cero ya nace con las once tablas.
+
 ### Después de preparar la base: el administrador
 
 La tabla `usuarios` queda vacía a propósito. El primer administrador no viene en

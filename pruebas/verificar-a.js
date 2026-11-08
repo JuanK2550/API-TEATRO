@@ -27,6 +27,16 @@ const pedir = async (metodo, ruta, cuerpo) => {
 // Petición auxiliar que no se registra como caso.
 const preparar = async (metodo, ruta, cuerpo) => pedir(metodo, ruta, cuerpo);
 
+// ========================================
+// Una fecha futura, contada desde hoy
+// ========================================
+// Antes estas fechas iban escritas a mano. Funcionaron hasta que llegó el día
+// y la regla de "la fecha no puede estar en el pasado" empezó a rechazarlas:
+// la prueba fallaba sin que nada se hubiera roto. Contarlas desde hoy evita
+// que la batería caduque sola.
+const enDias = (dias) =>
+  new Date(Date.now() + dias * 86400000).toISOString().slice(0, 10);
+
 const caso = async (numero, descripcion, metodo, ruta, cuerpo, esperado, extra) => {
   const { estado, datos } = await pedir(metodo, ruta, cuerpo);
   let nota = "";
@@ -193,7 +203,7 @@ const principal = async () => {
     "/api/funciones",
     {
       eventoId: 1,
-      fecha: "2026-11-05",
+      fecha: enDias(30),
       hora: "19:00",
       tarifas: [
         { localidadId: 1, precio: 90000 },
@@ -244,7 +254,7 @@ const principal = async () => {
     "/api/funciones",
     {
       eventoId: 1,
-      fecha: "2026-11-06",
+      fecha: enDias(31),
       hora: "19:00",
       tarifas: [
         { localidadId: 1, precio: 30000 },
@@ -260,7 +270,7 @@ const principal = async () => {
   // Función nueva sin ningún descuento habilitado, puesta en venta.
   const sinDescuentos = await preparar("POST", "/api/funciones", {
     eventoId: 1,
-    fecha: "2026-11-10",
+    fecha: enDias(35),
     hora: "19:00",
     tarifas: [
       { localidadId: 1, precio: 90000 },
