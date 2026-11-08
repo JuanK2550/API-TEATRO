@@ -2,6 +2,7 @@
 // Importaciones
 // ========================================
 const { verificarToken } = require("../utils/jwt.util");
+const usuariosService = require("../services/usuarios.service");
 
 // ========================================
 // Errores propios de jsonwebtoken
@@ -20,7 +21,12 @@ const ERRORES_DE_TOKEN = [
 // Autenticación mediante JWT
 // Identifica a la persona; la API Key identifica a la aplicación
 // ========================================
-const autenticarJWT = (req, res, next) => {
+// Desde el bloque 11 el middleware consulta la base en cada petición
+// autenticada. Cuesta una consulta, y a cambio el rol y la versión de sesión
+// salen de PostgreSQL y no del token: una cuenta desactivada, un rol rebajado o
+// una contraseña cambiada surten efecto en el acto, sin esperar a que el token
+// expire.
+const autenticarJWT = async (req, res, next) => {
   const cabecera = req.get("Authorization");
 
   if (!cabecera) {
@@ -38,10 +44,21 @@ const autenticarJWT = (req, res, next) => {
   try {
     const carga = verificarToken(token);
 
+    const usuario = await usuariosService.obtenerUsuarioPorId(Number(carga.sub));
+
+    if (!usuario || !usuario.activo) {
+      return res.status(401).json({ mensaje: "Cuenta no disponible" });
+    }
+
+    // Un JWT emitido antes del último cambio de contraseña ya no sirve.
+    if (!Number.isSafeInteger(carga.vs) || carga.vs !== usuario.versionSesion) {
+      return res.status(401).json({ mensaje: "Sesión revocada" });
+    }
+
     req.usuario = {
-      id: Number(carga.sub),
-      email: carga.email,
-      rol: carga.rol
+      id: usuario.id,
+      email: usuario.email,
+      rol: usuario.rol
     };
 
     next();

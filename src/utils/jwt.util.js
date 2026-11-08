@@ -26,9 +26,13 @@ const obtenerSecreto = () => {
 // ========================================
 // El payload viaja codificado en base64, no cifrado: cualquiera que tenga el
 // token puede leerlo. La firma impide modificarlo, no lo oculta.
+//
+// vs es la versión de sesión de la cuenta en el momento de firmar. Un JWT no se
+// puede retirar una vez emitido, así que al cambiar la contraseña la versión
+// sube en la base y este número deja de coincidir: el middleware lo rechaza.
 const generarToken = (usuario) =>
   jwt.sign(
-    { email: usuario.email, rol: usuario.rol },
+    { email: usuario.email, rol: usuario.rol, vs: usuario.versionSesion },
     obtenerSecreto(),
     {
       algorithm: ALGORITMO,

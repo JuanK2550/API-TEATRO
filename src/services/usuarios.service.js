@@ -34,7 +34,8 @@ const aUsuario = (fila) =>
         email: fila.email,
         passwordHash: fila.password_hash,
         rol: fila.rol,
-        activo: fila.activo
+        activo: fila.activo,
+        versionSesion: fila.version_sesion
       }
     : null;
 
@@ -44,6 +45,7 @@ const SELECCION = `
          u.email,
          u.password_hash,
          u.activo,
+         u.version_sesion,
          r.nombre AS rol
   FROM public.usuarios u
   JOIN public.roles r ON r.id = u.rol_id
@@ -86,13 +88,14 @@ const insertarUsuario = async (nombre, email, passwordHash, rol) => {
          (SELECT id FROM public.roles WHERE nombre = $4),
          $1, $2, $3, TRUE
        )
-       RETURNING id, nombre, email, password_hash, activo, rol_id
+       RETURNING id, nombre, email, password_hash, activo, rol_id, version_sesion
      )
      SELECT nuevo.id,
             nuevo.nombre,
             nuevo.email,
             nuevo.password_hash,
             nuevo.activo,
+            nuevo.version_sesion,
             r.nombre AS rol
      FROM nuevo
      JOIN public.roles r ON r.id = nuevo.rol_id`,
@@ -154,6 +157,40 @@ const verificarCredenciales = async (email, password) => {
 // contraseña: un log con la contraseña del administrador es tan grave como
 // escribirla en el código, porque los registros se copian, se comparten y se
 // suben a sistemas de monitoreo.
+// ========================================
+// Cambiar la propia contraseña
+// Sube la versión de sesión: los tokens anteriores dejan de valer
+// ========================================
+// El UPDATE lleva el hash anterior en el WHERE. Si entre la comprobación y la
+// escritura otra petición cambió la contraseña, no encuentra la fila y
+// devuelve CONFLICTO en lugar de pisar el cambio ajeno.
+const cambiarPasswordPropio = async (usuarioId, passwordActual, passwordNueva) => {
+  const usuario = await obtenerUsuarioPorId(usuarioId);
+
+  if (!usuario || !usuario.activo || !usuario.passwordHash) {
+    return { estado: "NO_AUTORIZADO" };
+  }
+
+  if (!(await verificarPassword(passwordActual, usuario.passwordHash))) {
+    return { estado: "CLAVE_INCORRECTA" };
+  }
+
+  if (await verificarPassword(passwordNueva, usuario.passwordHash)) {
+    return { estado: "MISMA_CLAVE" };
+  }
+
+  const { rowCount } = await consultar(
+    `UPDATE public.usuarios
+     SET password_hash = $1,
+         version_sesion = version_sesion + 1
+     WHERE id = $2 AND activo = TRUE AND password_hash = $3
+     RETURNING id`,
+    [await generarPasswordHash(passwordNueva), usuarioId, usuario.passwordHash]
+  );
+
+  return rowCount === 1 ? { estado: "OK" } : { estado: "CONFLICTO" };
+};
+
 const LONGITUD_MINIMA_PASSWORD = 12;
 const FORMATO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -274,5 +311,6 @@ module.exports = {
   crearUsuario,
   crearUsuarioAdministrativo,
   verificarCredenciales,
+  cambiarPasswordPropio,
   crearAdministradorInicial
 };
