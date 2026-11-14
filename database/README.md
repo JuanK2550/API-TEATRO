@@ -18,6 +18,12 @@ exactamente igual.
 | `02_roles_seguridad.sql` | Siembra los tres roles, activa RLS y retira el acceso de `anon` y `authenticated` | Sí |
 | `03_verificacion.sql` | Siete consultas de comprobación | No |
 | `04_datos_semilla.sql` | Los mismos datos semilla que `src/data/` | Sí |
+| `05_rol_aplicacion.sql` | El rol `api_teatro`, sin privilegios de dueño, y sus políticas RLS | Sí |
+| `06_vistas.sql` | Las vistas `v_programacion` y `v_boletas`, con `security_invoker` | Sí |
+| `07_version_sesion.sql` | La versión de sesión de cada cuenta, para revocar un JWT | Sí |
+| `08_password_reset_tokens.sql` | Los tokens de la recuperación administrativa | Sí |
+| `09_codigos_recuperacion.sql` | Los códigos de respaldo | Sí |
+| `huella-proyecto.json` | La huella del proyecto de Supabase, que protege contra reiniciar la base equivocada | No |
 
 `01` y `04` **no son idempotentes**: usan `CREATE TABLE` e `INSERT` con
 identificadores explícitos. Se ejecutan sobre un proyecto nuevo.
@@ -42,6 +48,19 @@ identificadores explícitos. Se ejecutan sobre un proyecto nuevo.
 | Habilitar RLS automático | **Activado** | Toda tabla nueva nace con Row Level Security. `02` lo vuelve a activar de forma explícita para las nueve. |
 
 7. Crear el proyecto y esperar a que esté disponible.
+8. Descargar el certificado de la autoridad en **Database → Settings → SSL
+   configuration** y guardarlo como `certs/prod-ca-2021.crt`, creando la
+   carpeta `certs` en la raíz del proyecto. La conexión
+   verifica siempre el servidor, y sin el certificado puede fallar (sección 8).
+9. En **Connect**, copiar la cadena de conexión del dueño (`postgres`) y ponerla
+   en el `.env` como `DATABASE_URL_ADMIN`. El `.env` se crea con
+   `cp .env.example .env` en la raíz del proyecto.
+10. Registrar la huella del proyecto nuevo, para que los scripts acepten
+    tocarlo. Solo imprime la huella: ni la cadena ni el host.
+
+    ```bash
+    node scripts/comprobar-proyecto.js --registrar
+    ```
 
 **Nunca** guardar en Git ni en el frontend: contraseñas de la base, la URI de
 conexión completa, ni la clave `service_role`.
@@ -50,12 +69,41 @@ conexión completa, ni la clave `service_role`.
 
 ## 3. Orden de ejecución
 
+### Con el script, la forma recomendada
+
+Desde la raíz del proyecto, con `npm ci` hecho y `DATABASE_URL_ADMIN` en el
+`.env`:
+
+```bash
+node scripts/preparar-base.js            # base nueva: ejecuta 01, 02, 04, 05, 06, 07, 08 y 09
+node scripts/crear-rol-aplicacion.js     # da contraseña a api_teatro
+npm run seed:admin                       # el primer administrador
+```
+
+`crear-rol-aplicacion.js` imprime una sola vez la línea `DATABASE_URL=…` con la
+contraseña nueva del rol `api_teatro`. Se copia al `.env` en ese momento: es la
+conexión que usa la API. Después, `node scripts/probar-conexion.js` comprueba
+que entra con TLS.
+
+Para volver a la semilla más adelante: `node scripts/preparar-base.js --reiniciar`.
+Borra las tablas y las vuelve a crear, siempre después de comprobar la huella.
+
+### A mano, en el SQL Editor
+
 En **SQL Editor → New query**, uno por uno y en este orden:
 
 1. `01_esquema_teatro.sql` — comprobar en **Table Editor** que existan nueve tablas.
 2. `02_roles_seguridad.sql` — comprobar los tres roles y RLS activo.
 3. `04_datos_semilla.sql` — los datos de prueba.
-4. `03_verificacion.sql` — las siete comprobaciones.
+4. `05_rol_aplicacion.sql` — el rol `api_teatro` y sus políticas.
+5. `06_vistas.sql` — las dos vistas.
+6. `07_version_sesion.sql`, `08_password_reset_tokens.sql` y
+   `09_codigos_recuperacion.sql` — las migraciones del bloque 11.
+7. `03_verificacion.sql` — las siete comprobaciones.
+
+El rol `api_teatro` nace sin poder iniciar sesión. Después de los SQL hace falta
+igualmente `node scripts/crear-rol-aplicacion.js`, que le asigna la contraseña y
+da la `DATABASE_URL`, y luego `npm run seed:admin`.
 
 Al terminar, `03` debe mostrar: tres roles, nueve tablas, `rls_habilitado = true`
 en las nueve, diez claves foráneas, los dos índices únicos parciales, las
@@ -346,13 +394,11 @@ cambiarle el estado, la consulta leía la fila anterior, porque en PostgreSQL el
 `SELECT` que acompaña a un `WITH` que modifica datos trabaja sobre la foto
 previa. La fila actualizada se toma del propio `RETURNING`.
 
-## 11. Qué falta
+## 11. Límites conocidos
 
-**Las políticas de Row Level Security.** Hoy RLS está activo y sin políticas, de
-modo que nadie entra por la vía directa. La API no se ve afectada porque usa su
-propio usuario de PostgreSQL. Escribirlas tiene sentido cuando se integre
-Supabase Auth, y entonces reproducirán en la base lo que hoy hacen
-`roles.middleware.js` y `propiedad.middleware.js`.
+**Las políticas RLS no filtran por persona.** Dejan entrar al rol `api_teatro` y
+a nadie más (sección 7). Quién ve qué fila lo deciden `roles.middleware.js` y
+`propiedad.middleware.js`; llevarlo a la base tendría sentido con Supabase Auth.
 
 **La identidad en `auth.users`.** La columna `usuarios.auth_user_id` existe y
 está vacía: las contraseñas siguen en `password_hash` con bcrypt. Migrar a

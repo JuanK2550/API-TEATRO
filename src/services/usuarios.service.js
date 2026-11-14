@@ -446,9 +446,7 @@ const cambiarEstadoUsuario = async (id, activo, idSolicitante) => {
 // ========================================
 module.exports = {
   ROLES,
-  ROL_POR_DEFECTO,
   ROLES_ADMINISTRATIVOS,
-  USUARIOS_POR_PAGINA,
   obtenerUsuarioPorEmail,
   obtenerUsuarioPorId,
   crearUsuario,

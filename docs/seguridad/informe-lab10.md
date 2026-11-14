@@ -323,8 +323,8 @@ suya. 409.
 
 ## Las desviaciones frente a la guía
 
-La guía está escrita sobre un sistema de **citas médicas** con pacientes y
-médicos. El teatro no se traduce campo por campo, y donde no se traduce lo
+La guía está escrita sobre un sistema de **reservas** con usuarios finales y
+un rol profesional con agenda. El teatro no se traduce campo por campo, y donde no se traduce lo
 decidimos a conciencia en lugar de forzar la analogía.
 
 ### La cartelera es pública; la guía pide sesión para todo
@@ -333,22 +333,23 @@ Es la desviación de mayor alcance y conviene decirla primero. La política RBAC
 de la guía (PARTE 2) exige sesión para **todos** los recursos, incluidas las
 consultas:
 
-| Recurso de la guía | Administrador | Médico | Paciente |
+| Recurso de la guía | Administrador | Rol profesional | Usuario final |
 | ------------------ | ------------- | ------ | -------- |
-| Especialidades, Médicos, Consultorios | CRUD | GET | GET |
+| Catálogo y profesionales, espacios de atención | CRUD | GET | GET |
 
 Y sus PARTES 24 a 26 lo escriben así:
 
 ```js
 autenticarJWT,
-autorizarRoles("administrador", "medico", "paciente")
+autorizarRoles("administrador", "<rol profesional>", "<usuario final>")
 ```
 
 En el teatro, los equivalentes de esos tres recursos son **eventos, localidades
 y funciones**, y sus `GET` los dejamos **públicos**, sin JWT.
 
-La razón es que el hospital y el teatro publican cosas distintas. Un hospital no
-tiene por qué enseñar su lista de médicos a quien pase por la calle; un teatro
+La razón es que el sistema de la guía y el teatro publican cosas distintas. Un
+servicio con agenda no tiene por qué enseñar su lista de profesionales a quien
+pase por la calle; un teatro
 **existe para publicar su cartelera**. Es información que queremos que se vea, y
 nuestra Sala la recorre sin pedir cuenta: obligar a registrarse para mirar un
 cartel convertiría la taquilla en línea en un muro.
@@ -360,11 +361,11 @@ barrera, no la primera.
 Si el enunciado exigiera la política literal, el cambio es de una línea por ruta
 y la Sala tendría que pedir sesión antes de la cartelera.
 
-### El médico posee citas; la taquilla no posee boletas
+### El rol profesional posee reservas; la taquilla no posee boletas
 
-Es la diferencia estructural. En la guía, un médico **es** una entidad con citas
-propias: tiene sentido preguntar por "sus" citas y comprobar que no ve las de
-otro médico. En el teatro, `taquilla` es **solo un rol de una cuenta**. No hay
+Es la diferencia estructural. En la guía, el rol profesional **es** una entidad con
+reservas propias: tiene sentido preguntar por "sus" reservas y comprobar que no
+ve las de otro profesional. En el teatro, `taquilla` es **solo un rol de una cuenta**. No hay
 una tabla de taquilleros, ni una boleta tiene un campo que diga quién la vendió.
 
 Por eso las pruebas 15 a 18 y la 23 no tienen equivalente, y abajo decimos qué
@@ -374,10 +375,10 @@ Lo que sí modela la taquilla es su vista de trabajo:
 `GET /api/boletas/funcion/:funcionId`, las boletas de una función, que es lo que
 necesita quien atiende la puerta de una sala.
 
-### El asistente compra; el paciente no agenda
+### El asistente compra; el usuario final de la guía no reserva
 
-En la guía, crear una cita es una operación administrativa y el paciente recibe
-403. En el teatro **el asistente compra su propia boleta**: es el caso de uso
+En la guía, crear una reserva es una operación administrativa y el usuario
+final recibe 403. En el teatro **el asistente compra su propia boleta**: es el caso de uso
 central del proyecto y la Sala entera existe para eso. Responder 403 convertiría
 la taquilla en línea en una pantalla de solo lectura.
 
@@ -388,7 +389,7 @@ indican, porque venden para quien tienen delante.
 
 ### El asistente cambia el estado de su boleta
 
-En la guía, cambiar el estado de una cita es administrativo. En el teatro, pagar
+En la guía, cambiar el estado de una reserva es administrativo. En el teatro, pagar
 y cancelar **son del dueño**: el pago lo hace quien compra y la cancelación es un
 derecho de quien compró.
 
@@ -419,38 +420,38 @@ columna de la derecha dice cuál las comprueba.
 | - | ----------------- | ------------------------ | ------------ | --------- |
 | 1 | Sin JWT → recurso protegido: 401 | igual | "Escribir sin token es 401, no 403", "Leer una boleta sin JWT es 401", "Crear un usuario sin token es 401" | correcto |
 | 2 | JWT inválido o alterado: 401 | igual | "Un token con la firma roto es 401" | correcto |
-| 3 | Paciente → operación de admin: 403 | asistente | "Un asistente no crea eventos", "Un asistente no borra el evento de prueba" | correcto |
-| 4 | Médico → operación de admin: 403 | taquilla | "La taquilla no crea usuarios", "La taquilla no asocia un asistente a una cuenta" | correcto |
+| 3 | Usuario final → operación de admin: 403 | asistente | "Un asistente no crea eventos", "Un asistente no borra el evento de prueba" | correcto |
+| 4 | Rol profesional → operación de admin: 403 | taquilla | "La taquilla no crea usuarios", "La taquilla no asocia un asistente a una cuenta" | correcto |
 | 5 | Admin → operación administrativa: 200/201 | igual | "El administrador sí crea eventos" (201), "El administrador crea una cuenta de taquilla" (201) | correcto |
-| 6 | Registro con `rol:"administrador"` → queda paciente: 201 | queda asistente | "Registrarse con rol administrador devuelve 201 y la cuenta queda asistente" | correcto |
+| 6 | Registro con `rol:"administrador"` → queda usuario final: 201 | queda asistente | "Registrarse con rol administrador devuelve 201 y la cuenta queda asistente" | correcto |
 | 7 | Registro con `activo:false` → queda activo: 201 | igual | "Registrarse con activo:false devuelve 201 y la cuenta queda activa" | correcto |
 | 8 | Registro con `passwordHash` → ignorado: 201 | igual | "Registrarse con passwordHash devuelve 201 y el hash enviado se ignora" | correcto |
 | 9 | Registro con `esSuperAdmin:true` → ignorado: 201 | igual | "Registrarse con esSuperAdmin:true devuelve 201 y el campo no existe" | correcto |
-| 10 | Médico → crear usuario privilegiado: 403 | taquilla | "La taquilla no crea usuarios" | correcto |
-| 11 | Paciente A → sus citas: 200 | asistente A → `/asistente/A` | "A lee sus propias boletas por su asistenteId" | correcto |
-| 12 | Paciente A → citas de B: 403 | igual | "A NO lee las de B cambiando el número", "B tampoco lee las de A" | correcto |
-| 13 | Paciente A → su cita individual: 200 | `GET /boletas/:id` propia | "A lee su propia boleta" | correcto |
-| 14 | Paciente A → cita individual de B: 403 | igual | "A NO lee la boleta de B", "B NO lee la boleta de A" | correcto |
-| 15 | Médico A → sus citas `/medico/{A}`: 200 | **sin equivalente** | sustituida por "La taquilla también: atiende a quien tiene delante" (200 sobre el asistenteId de cualquiera) | correcto |
-| 16 | Médico A → citas de B: 403 | **sin equivalente** | sustituida por "La taquilla tampoco" en `/mias` (403) y por `GET /api/boletas/funcion/:funcionId`, que es su vista real | correcto |
-| 17 | Médico A → cita individual propia: 200 | **sin equivalente** | sustituida por "La taquilla lee cualquier boleta" (200) | correcto |
-| 18 | Médico A → cita individual ajena: 403 | **sin equivalente** | no aplica: la taquilla puede leer cualquier boleta por diseño, porque atiende al público. Lo que no puede es listar toda la boletería: "La taquilla tampoco" (403 en `GET /api/boletas`) | correcto |
-| 19 | Paciente → `/mis-citas`: 200, solo propias | asistente → `/boletas/mias` | "A ve en /mias solo sus boletas", "B ve en /mias solo las suyas" | correcto |
-| 20 | Médico → `/mis-citas`: **200, solo propias** | **desviación**: la taquilla recibe 403 | "La taquilla tampoco" | 403 a propósito |
-| 21 | Admin → `/mis-citas`: 403 | igual | "El administrador no tiene /mias" | correcto |
-| 22 | Paciente sin perfil → `/mis-citas`: 403 | igual | "Una cuenta de asistente sin perfil no llega a sus boletas", "Un asistente sin perfil recibe 403 en /mias" | correcto |
-| 23 | Médico sin perfil | **sin equivalente**, igual que 15-18 | sustituida por la misma de la 22: lo que decide es tener perfil de asistente, no el rol | correcto |
-| 24 | Admin → todas las citas: 200 | `GET /api/boletas` | "El administrador sí" | correcto |
-| 25 | Paciente → todas: 403 | asistente | "A no lista toda la boletería" | correcto |
-| 26 | Médico → todas: 403 | taquilla | "La taquilla tampoco: para eso están las consultas por asistente y por función" | correcto |
-| 27 | Paciente/Médico → `POST /api/citas`: **403** | **desviación** | el asistente compra (201) y la taquilla vende (201). Protegido por "Comprar a nombre de otro acaba a nombre propio" | correcto |
-| 28 | Paciente/Médico → PUT/PATCH/DELETE: **403** | **desviación parcial**: asistente 403; taquilla PUT/PATCH sí, DELETE 403 | "Un asistente no modifica una boleta con PUT", "Ni la suya propia", "La taquilla sí pasa el control de rol del PUT", "La taquilla tampoco: borrar es solo del administrador" | correcto |
-| 29 | Paciente/Médico → `PATCH .../estado`: **403** | **desviación** | el dueño paga y cancela (200); `usada` es 403 para él: "A sí paga su propia boleta", "Y la cancela", "A no marca su propia boleta como usada" | correcto |
+| 10 | Rol profesional → crear usuario privilegiado: 403 | taquilla | "La taquilla no crea usuarios" | correcto |
+| 11 | Usuario final A → sus reservas: 200 | asistente A → `/asistente/A` | "A lee sus propias boletas por su asistenteId" | correcto |
+| 12 | Usuario final A → reservas de B: 403 | igual | "A NO lee las de B cambiando el número", "B tampoco lee las de A" | correcto |
+| 13 | Usuario final A → su reserva individual: 200 | `GET /boletas/:id` propia | "A lee su propia boleta" | correcto |
+| 14 | Usuario final A → reserva individual de B: 403 | igual | "A NO lee la boleta de B", "B NO lee la boleta de A" | correcto |
+| 15 | Profesional A → sus reservas `/profesional/{A}`: 200 | **sin equivalente** | sustituida por "La taquilla también: atiende a quien tiene delante" (200 sobre el asistenteId de cualquiera) | correcto |
+| 16 | Profesional A → reservas de B: 403 | **sin equivalente** | sustituida por "La taquilla tampoco" en `/mias` (403) y por `GET /api/boletas/funcion/:funcionId`, que es su vista real | correcto |
+| 17 | Profesional A → reserva individual propia: 200 | **sin equivalente** | sustituida por "La taquilla lee cualquier boleta" (200) | correcto |
+| 18 | Profesional A → reserva individual ajena: 403 | **sin equivalente** | no aplica: la taquilla puede leer cualquier boleta por diseño, porque atiende al público. Lo que no puede es listar toda la boletería: "La taquilla tampoco" (403 en `GET /api/boletas`) | correcto |
+| 19 | Usuario final → `/mis-reservas`: 200, solo propias | asistente → `/boletas/mias` | "A ve en /mias solo sus boletas", "B ve en /mias solo las suyas" | correcto |
+| 20 | Rol profesional → `/mis-reservas`: **200, solo propias** | **desviación**: la taquilla recibe 403 | "La taquilla tampoco" | 403 a propósito |
+| 21 | Admin → `/mis-reservas`: 403 | igual | "El administrador no tiene /mias" | correcto |
+| 22 | Usuario final sin perfil → `/mis-reservas`: 403 | igual | "Una cuenta de asistente sin perfil no llega a sus boletas", "Un asistente sin perfil recibe 403 en /mias" | correcto |
+| 23 | Rol profesional sin perfil | **sin equivalente**, igual que 15-18 | sustituida por la misma de la 22: lo que decide es tener perfil de asistente, no el rol | correcto |
+| 24 | Admin → todas las reservas: 200 | `GET /api/boletas` | "El administrador sí" | correcto |
+| 25 | Usuario final → todas: 403 | asistente | "A no lista toda la boletería" | correcto |
+| 26 | Rol profesional → todas: 403 | taquilla | "La taquilla tampoco: para eso están las consultas por asistente y por función" | correcto |
+| 27 | Usuario final / rol profesional → `POST /api/reservas`: **403** | **desviación** | el asistente compra (201) y la taquilla vende (201). Protegido por "Comprar a nombre de otro acaba a nombre propio" | correcto |
+| 28 | Usuario final / rol profesional → PUT/PATCH/DELETE: **403** | **desviación parcial**: asistente 403; taquilla PUT/PATCH sí, DELETE 403 | "Un asistente no modifica una boleta con PUT", "Ni la suya propia", "La taquilla sí pasa el control de rol del PUT", "La taquilla tampoco: borrar es solo del administrador" | correcto |
+| 29 | Usuario final / rol profesional → `PATCH .../estado`: **403** | **desviación** | el dueño paga y cancela (200); `usada` es 403 para él: "A sí paga su propia boleta", "Y la cancela", "A no marca su propia boleta como usada" | correcto |
 | 30 | Sin `X-API-Key`: 401 | igual | "GET /api/eventos sin API Key responde 401", "Leer una boleta sin X-API-Key es 401" | correcto |
 
 ### Por qué las 15 a 18 y la 23 se sustituyen así
 
-Las cuatro pruebas del médico comprueban que **un rol intermedio no vea los
+Las cuatro pruebas del rol profesional comprueban que **un rol intermedio no vea los
 datos de otro del mismo rol**. En el teatro ese aislamiento no existe porque la
 taquilla no posee boletas: su permiso no es "las mías", es "las de cualquiera,
 porque atiendo al público".

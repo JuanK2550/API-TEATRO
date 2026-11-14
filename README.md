@@ -4,6 +4,12 @@ API REST para programar funciones y vender boletería en el Teatro Maldonado de
 Tunja. Hecha con Node.js y Express, con los datos en PostgreSQL sobre Supabase
 y documentada con OpenAPI 3.0.3.
 
+## Documentación del proyecto
+
+- **Base de datos:** [database/README.md](database/README.md). Crear el proyecto en Supabase, preparar la conexión y ejecutar los SQL en orden.
+- **Backend:** este mismo README, en [Instalación y ejecución](#instalación-y-ejecución). Requisitos, `.env`, administrador inicial, arranque y pruebas.
+- **Frontend:** [teatro-frontend/README.md](teatro-frontend/README.md). Arranque de la interfaz en React.
+
 ## Objetivo y contexto
 
 El teatro programa obras, conciertos, cine y actos institucionales en una sala
@@ -862,21 +868,44 @@ ella. Encima sigue el límite de diez intentos por ventana.
 
 ## Instalación y ejecución
 
-Requisitos: Node.js 18 o superior (probado en 24.15.0) y npm.
+Requisitos:
+
+- Node.js 18 o superior (probado en 24.15.0) y npm.
+- Una cuenta de [Supabase](https://supabase.com) para la base de datos.
+- Git Bash, para la tanda completa de pruebas en Windows.
+
+Desde cero, en la raíz del proyecto recién clonado:
 
 ```bash
-npm install
+# 1. Dependencias, exactamente las del package-lock.json
+npm ci
+
+# 2. El .env, a partir de la plantilla. Se rellena según la tabla de abajo
 cp .env.example .env
 
-node scripts/preparar-base.js --reiniciar   # esquema, RLS, semilla y vistas
-npm run seed:admin                          # crea el primer administrador
+# 3. La base de datos: proyecto en Supabase, certificado y SQL en orden.
+#    Los pasos completos están en database/README.md. En resumen:
+node scripts/comprobar-proyecto.js --registrar   # solo con un proyecto nuevo
+node scripts/preparar-base.js                    # los SQL 01, 02 y 04 a 09
+node scripts/crear-rol-aplicacion.js             # contraseña de api_teatro → DATABASE_URL
 
+# 4. El primer administrador, con ADMIN_* del .env
+npm run seed:admin
+
+# 5. Arranque
 npm run dev     # desarrollo (nodemon)
 npm start       # producción
 ```
 
 Los comandos se ejecutan desde la raíz del proyecto. El servidor queda en
-`http://localhost:3000`.
+`http://localhost:3000`, Swagger UI en `http://localhost:3000/api-docs`, y la
+interfaz se arranca aparte desde `teatro-frontend/`, como explica su
+[README](teatro-frontend/README.md). Las pruebas se ejecutan con
+`bash pruebas/correr.sh`, como se explica en [Cómo ejecutarlos](#cómo-ejecutarlos).
+
+`database/huella-proyecto.json` guarda la huella del proyecto de Supabase del
+teatro. Con un proyecto propio hay que registrar la suya, el paso 3: si no,
+`preparar-base.js` y `correr.sh` se niegan a tocar la base.
 
 **`npm start` y `npm run dev` no crean ninguna cuenta.** El primer administrador
 se crea solo con `npm run seed:admin`, un paso explícito que se ejecuta una vez
@@ -945,9 +974,9 @@ creado` la primera vez y nada más: ni el correo ni la contraseña aparecen en e
 log.
 
 Para probar desde Swagger UI hay que pulsar **Authorize**, arriba a la derecha,
-y pegar una de las claves activas. Sin ese paso todos los endpoints responden
-401. En ese mismo diálogo se pega el token del login para las rutas que además
-piden `BearerAuth`.
+y pegar en `BearerAuth` el token que devuelve `POST /api/auth/login`. Las rutas
+de integración piden además una API Key activa en `ApiKeyAuth`; cuáles son, en
+[Qué credencial pide cada ruta](#qué-credencial-pide-cada-ruta).
 
 ## Estructura
 
@@ -957,9 +986,9 @@ API_TEATRO/
 ├── .gitignore
 ├── README.md
 ├── package.json
-├── certs/                       # certificado TLS de Supabase (no se versiona)
+├── certs/                       # se crea al instalar: certificado TLS de Supabase, no se versiona
 ├── database/                    # esquema SQL, roles, semilla y verificación
-├── scripts/                     # preparar-base.js, probar-conexion.js y comprobar-proyecto.js
+├── scripts/                     # preparar la base, rol de la API, administrador inicial y diagnósticos
 ├── docs/entregas/                # informes de entrega en PDF
 ├── docs/seguridad/               # salidas de las herramientas e informes por laboratorio
 ├── teatro-frontend/              # la interfaz: cartelera pública y panel, en React + Vite
@@ -1386,8 +1415,8 @@ batería necesita.
   añadir uno exige editar `src/data/apiKeys.js` y reiniciar; no hay endpoint
   para gestionarlos. El resto de los datos vive en PostgreSQL.
 - Por el registro público no se puede crear un administrador, ni siquiera a
-  propósito. El primero sale de `crearAdministradorInicial()`, que lo siembra
-  desde el `.env` al arrancar; los demás, de `POST /api/usuarios`.
+  propósito. El primero sale de `npm run seed:admin`, un paso explícito que lee
+  el `.env`; los demás, de `POST /api/usuarios`.
 - `JWT_SECRET` se comprueba cuando se usa, no al arrancar. Si falta, el servidor
   arranca igual y falla al primer login, con un 500.
 - Revocar una sesión exige cambiar la contraseña. Desde el bloque 11 eso
@@ -1436,7 +1465,7 @@ batería necesita.
   le corresponde. Sigue siendo una red y no una reserva: la butaca no se
   bloquea mientras el cliente decide.
 
-## Documentación de entregas — Lab. No.5, No.6, No.7, No.8, No.9, No.10 y Bloques 7, 8 y 11
+## Documentación de entregas — Lab. No.5, No.6, No.7, No.8, No.9, No.10, Bloques 7, 8 y 11 y Módulo final
 
 - [Pruebas SCA + SAST + DAST y levantamiento de la API](docs/entregas/LEVANTAMIENTO%20DE%20LA%20API%20MAS%20PRUEBAS.pdf)
 - [Laboratorio 5: integridad referencial y API Keys](docs/entregas/Integridad%20referencial%20%2B%20API%20Keys.pdf)
@@ -1448,6 +1477,7 @@ batería necesita.
 - [Bloque 7: Supabase, PostgreSQL y persistencia segura](docs/entregas/Bloque%207%20-%20Supabase%20y%20PostgreSQL%20-%20persistencia%20segura%20-%20API_TEATRO.pdf)
 - [Bloque 8: bootstrap del administrador y validación integral](docs/entregas/BLOQUE%208%20-%20bootstrap%20validacion%20API_TEATRO.pdf)
 - [Bloque 11: recuperación de acceso y reparto de credenciales](docs/entregas/Bloque11%20-%20Recuperacion%20-%20Credenciales%20-%20API_TEATRO.pdf)
+- [Módulo final: interfaz en React y estrategia de pruebas](docs/entregas/ModuloFinal%20-%20Interfaz%20-%20React%20-%20Pruebas%20-%20API_TEATRO.pdf)
 
 ## Integrantes
 

@@ -30,7 +30,7 @@ resultados:
 2. **P35 responde 401, no 403.** El README advierte que el código depende del
    middleware configurado. En el teatro `apiKey.middleware.js` distingue tres
    casos: ausente 401, inválida 401 y deshabilitada 403. El esperado se tomó del
-   comportamiento real, no de la guía del hospital.
+   comportamiento real, no de la guía de referencia.
 
 ---
 

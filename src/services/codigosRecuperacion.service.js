@@ -163,7 +163,6 @@ const restablecer = async (email, codigo, passwordNueva) => {
 // Exportaciones
 // ========================================
 module.exports = {
-  CODIGOS_POR_LOTE,
   generar,
   disponibles,
   restablecer

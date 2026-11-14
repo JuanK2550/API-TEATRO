@@ -19,16 +19,30 @@ análisis estático.
 
 ## Arranque
 
-Con la API en marcha en otra terminal (`npm run dev` en la raíz del proyecto):
+Requisitos: Node.js 18 o superior y npm, y la API ya instalada y en marcha en
+otra terminal (`npm run dev` en la raíz del proyecto). Su instalación desde
+cero, con la base de datos y el administrador inicial, está en el
+[README principal](../README.md#instalación-y-ejecución).
 
-```powershell
+```bash
 cd teatro-frontend
-copy .env.example .env
+cp .env.example .env      # en PowerShell o cmd: copy .env.example .env
 npm ci
 npm run lint
 npm run build
 npm run dev
 ```
+
+Para entrar al panel hace falta una cuenta: el administrador que creó
+`npm run seed:admin`, o un asistente registrado desde la propia cartelera.
+
+### Comprobaciones
+
+- `npm run lint`: ESLint, sin errores ni avisos.
+- `npm run build`: compila el bundle de producción en `dist/`.
+- Las pruebas de la API que consume la interfaz, incluida `pruebas-panel.js`,
+  se ejecutan desde la raíz con `bash pruebas/correr.sh`, como explica el
+  [README principal](../README.md#cómo-ejecutarlos).
 
 La cartelera queda en <http://localhost:5173> y el panel en
 <http://localhost:5173/panel>. `npm run preview` sirve el build en

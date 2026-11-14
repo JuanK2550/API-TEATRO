@@ -50,8 +50,8 @@ constante del dominio, no una pieza del validador.
 
 En `src/services/usuarios.service.js` la línea `rol: datos.rol` pasó a ser un
 rol fijo. En el teatro es `asistente`, el menos privilegiado de los tres: el
-que compra boletas. Es el equivalente de `paciente` en el hospital del
-laboratorio de referencia.
+que compra boletas. Es el equivalente del usuario final en el proyecto
+de referencia del laboratorio.
 
 No lo escribimos como cadena suelta, sino como constante junto a `ROLES`:
 

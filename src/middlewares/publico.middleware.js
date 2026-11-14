@@ -95,9 +95,7 @@ const visibleLocalidad = (localidad, req) => esMostrador(req) || localidad.activ
 // Exportaciones
 // ========================================
 module.exports = {
-  ESTADOS_PUBLICOS,
   sesionOpcional,
-  esMostrador,
   filtrarEventos,
   filtrarFunciones,
   filtrarLocalidades,

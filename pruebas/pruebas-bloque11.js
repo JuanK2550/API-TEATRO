@@ -1,8 +1,8 @@
 // ========================================
 // Las 25 pruebas del Paso 8 del bloque 11
 // ========================================
-// Adaptadas al teatro: asistente en lugar de paciente, boleta en lugar de
-// cita. Cada fila anota el código HTTP real y, donde hace falta, el efecto en
+// Adaptadas al teatro: asistente en lugar de usuario final, boleta en lugar
+// de reserva. Cada fila anota el código HTTP real y, donde hace falta, el efecto en
 // PostgreSQL. No imprime tokens, contraseñas ni hashes.
 //
 // Desde el bloque 11 el reparto es el de la guía: el catálogo y el acceso son

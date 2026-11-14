@@ -131,19 +131,6 @@ const obtenerBoletasPorAsistente = async (asistenteId) => {
 };
 
 // ========================================
-// Existen boletas activas de una función
-// La usa funciones.controller.js para proteger el borrado
-// ========================================
-const existenBoletasActivasDeFuncion = async (funcionId) => {
-  const { rows } = await consultar(
-    `SELECT 1 FROM public.boletas WHERE funcion_id = $1 AND ${VIVA} LIMIT 1`,
-    [Number(funcionId)]
-  );
-
-  return rows.length > 0;
-};
-
-// ========================================
 // Ocupación de una función
 // Solo la butaca: ni el código, ni el precio, ni quién la compró
 // ========================================
@@ -463,7 +450,6 @@ const localidadTieneBoletas = (localidadId) =>
 // Exportaciones
 // ========================================
 module.exports = {
-  PORCENTAJES_DESCUENTO,
   TIPOS_DESCUENTO,
   DESCUENTO_POR_DEFECTO,
   LIMITE_BOLETAS_POR_ASISTENTE,
@@ -477,13 +463,10 @@ module.exports = {
   obtenerBoletaPorId,
   obtenerBoletasPorFuncion,
   obtenerBoletasPorAsistente,
-  existenBoletasActivasDeFuncion,
   obtenerOcupacionDeFuncion,
   butacaOcupada,
   contarBoletasPorFuncionYLocalidad,
   contarBoletasPorAsistenteYFuncion,
-  calcularPrecio,
-  generarCodigo,
   crearBoleta,
   actualizarBoleta,
   actualizarBoletaParcial,

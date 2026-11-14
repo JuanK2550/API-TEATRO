@@ -134,7 +134,6 @@ const restablecerPassword = async (token, passwordNueva) => {
 // Exportaciones
 // ========================================
 module.exports = {
-  MINUTOS_DE_VIGENCIA,
   generarRecuperacion,
   restablecerPassword
 };

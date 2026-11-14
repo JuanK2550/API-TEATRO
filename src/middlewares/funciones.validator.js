@@ -158,7 +158,6 @@ const validarEstadoFuncion = [
 // Exportaciones
 // ========================================
 module.exports = {
-  DESCUENTOS_PERMITIDOS,
   validarIdFuncion,
   validarEventoIdFuncion,
   validarCreacionFuncion,

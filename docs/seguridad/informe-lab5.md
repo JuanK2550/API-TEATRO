@@ -4,7 +4,7 @@
 
 El laboratorio pedía dos cosas sobre la API que ya teníamos: integridad
 referencial en los borrados y protección de `/api` con una API Key. La
-referencia es el proyecto API HOSPITAL y lo que se hizo fue llevar ese mismo
+referencia es el proyecto de la guía del curso y lo que se hizo fue llevar ese mismo
 patrón a API_TEATRO, que guarda los datos en memoria y tiene cinco recursos
 relacionados entre sí: eventos, funciones, localidades, asistentes y boletas.
 El Bloque 2, la auditoría SCA + SAST + DAST, se entregó el 16 de septiembre de
