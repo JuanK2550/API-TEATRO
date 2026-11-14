@@ -41,6 +41,7 @@ BATERIAS=(
   pruebas-autorizacion.js
   pruebas-recuperacion.js
   pruebas-bloque11.js
+  pruebas-panel.js
   pruebas-acceso.js
   verificar-a.js
   verificar-b.js

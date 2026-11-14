@@ -530,16 +530,20 @@ const principal = async () => {
     nota: `pidió rol administrador; quedó como ${rolPersistido.rows[0] && rolPersistido.rows[0].rol}`
   });
 
-  // 34. /sala/config.js ya no entrega la clave.
+  // 34. Ninguna ruta del servidor entrega una clave al navegador.
+  // En el bloque 11 se comprobaba que /sala/config.js ya no llevaba la clave.
+  // Con la unificación de la interfaz en el panel React, la Sala y esa ruta
+  // se retiraron: ahora se comprueba que la ruta ya no existe y que su
+  // respuesta tampoco contiene la clave.
   const respuestaConfig = await fetchReal(`${BASE}/sala/config.js`);
   const textoConfig = await respuestaConfig.text();
   const claveReal = process.env.API_KEY_WEB || "";
   prueba(
     34,
-    "/sala/config.js ya no entrega la API Key",
+    "La ruta que servía la clave al navegador ya no existe",
     "GET /sala/config.js",
     "navegador",
-    200,
+    404,
     respuestaConfig.status,
     {
       ok:
@@ -549,7 +553,11 @@ const principal = async () => {
     }
   );
 
-  // 35. Las dos rutas sin sesión siguen pidiendo API Key.
+  // 35. Las dos rutas de restablecimiento, sin API Key.
+  // En el bloque 11 respondían 401 por falta de clave. El módulo final las
+  // abrió al navegador, que no tiene clave: ahora las protege el propio
+  // secreto de un solo uso. Lo que se comprueba es que, sin clave, un token y
+  // un código falsos los rechaza la lógica con su mensaje, no la puerta.
   const reset1 = await pedir("POST", "/api/auth/restablecer-password", {
     sinClave: true,
     cuerpo: { token: "f".repeat(64), passwordNueva: CLAVE_1, confirmarPassword: CLAVE_1 }
@@ -565,14 +573,18 @@ const principal = async () => {
   });
   prueba(
     35,
-    "Las dos rutas de restablecimiento sin API Key",
+    "Sin API Key, un token o código falso lo rechaza la lógica",
     "POST /auth/restablecer-password · /restablecer-con-codigo",
     "anónimo",
-    401,
+    400,
     reset1.estado,
     {
-      ok: reset1.estado === 401 && reset2.estado === 401,
-      nota: `restablecer-password ${reset1.estado} · restablecer-con-codigo ${reset2.estado}`
+      ok:
+        reset1.estado === 400 &&
+        reset2.estado === 400 &&
+        /utilizado|inválido/i.test(reset1.datos?.mensaje ?? "") &&
+        /código o cuenta inválidos/i.test(reset2.datos?.mensaje ?? ""),
+      nota: `restablecer-password ${reset1.estado} «${reset1.datos?.mensaje}» · restablecer-con-codigo ${reset2.estado} «${reset2.datos?.mensaje}»`
     }
   );
 
