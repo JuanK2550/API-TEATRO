@@ -73,6 +73,7 @@ for bateria in "${BATERIAS[@]}"; do
   until curl -s -o /dev/null http://localhost:3000/ 2>/dev/null; do sleep 1; done
 
   salida=$(node "pruebas/$bateria" 2>&1)
+  echo "$salida" > "${TMPDIR:-/tmp}/api-teatro-${bateria%.js}.log"
 
   # Las baterías numeradas imprimen un total; verificar-* devuelve JSON.
   linea=$(echo "$salida" | grep -E "Total:.*Correctas:.*Fallidas:" | tail -1)
@@ -97,10 +98,18 @@ for bateria in "${BATERIAS[@]}"; do
   fi
 
   printf "  %-26s Total: %s | Correctas: %s | Fallidas: %s\n" "$bateria" "$t" "$c" "$f"
+  [ "$f" != "0" ] && echo "      salida completa: ${TMPDIR:-/tmp}/api-teatro-${bateria%.js}.log"
   total=$((total + t)); correctas=$((correctas + c)); fallidas=$((fallidas + f))
 done
 
 taskkill //F //IM node.exe > /dev/null 2>&1
+
+# Al terminar, la base vuelve a la semilla, sin las cuentas ni las boletas de prueba.
+if node scripts/preparar-base.js --reiniciar > /dev/null 2>&1 && node scripts/crear-admin.js > /dev/null 2>&1; then
+  echo "  Base de vuelta en la semilla"
+else
+  echo "  Aviso: la base no se pudo dejar en la semilla"
+fi
 
 echo "  ---------------------------------------------------------"
 printf "  %-26s Total: %s | Correctas: %s | Fallidas: %s\n" "TODAS" "$total" "$correctas" "$fallidas"

@@ -2,9 +2,11 @@ DAST - Módulo final - Resumen del escaneo con OWASP ZAP
 ========================================================
 
 Herramienta:   OWASP ZAP 2.17.0, sin interfaz, con su marco de automatización
-Fecha:         13/11/2026
+Fecha:         13/11/2026, repetido tras unificar la interfaz
 Objetivos:     http://localhost:3000/api    la API, a partir de /openapi.json
-               http://localhost:4173        el panel compilado (vite preview)
+               http://localhost:4173        la interfaz compilada (vite preview), ya
+                                            con la cartelera, la ficha, el registro
+                                            y la compra con plano
 Sesión:        el escaneo activo de la API va autenticado como administrador.
                El JWT entra por las variables ZAP_AUTH_HEADER* y no se
                escribe en ningún archivo.
@@ -14,7 +16,7 @@ Plan
 1. openapi          61 URLs importadas del OpenAPI
 2. spider           27 URLs del panel
 3. passiveScan-wait
-4. activeScan       sobre la API, 9 min 24 s
+4. activeScan       sobre la API, 8 min 44 s
 5. informes         JSON y HTML
 
 Antes de escanear, una petición de control a /api/estadisticas/resumen,
@@ -24,8 +26,7 @@ escaneo de verdad entra con sesión.
 Respuestas del servidor durante el escaneo final
 ------------------------------------------------
 5xx (errores servidor):    0
-Rechazos por carácter nulo: 21  (400, por el filtro nuevo)
-Conflictos de unicidad:      1  (409)
+Rechazos por carácter nulo: 22  (400, por el filtro nuevo)
 
 Alertas
 -------
@@ -49,10 +50,12 @@ Informativo:    4
 
 3) Divulgación de información - Comentarios sospechosos - FALSO POSITIVO
    Sitio:   panel, /assets/index-*.js
-   Evidencia: "G · todo público"
+   Evidencia: `Todo`
    Motivo:  ZAP busca la palabra TODO de los comentarios de programador.
-            Aquí es el español "todo público", el texto de la
-            clasificación G de un evento. El bundle no tiene comentarios.
+            Aquí es el español "Todo", el texto del botón que quita el
+            filtro por tipo en la cartelera. En el escaneo anterior a la
+            unificación la palabra era "todo público", la clasificación G.
+            El bundle no tiene comentarios.
 
 4) Petición de Autenticación Identificada - Informativo - SIN RIESGO
    Sitio:   API
@@ -86,3 +89,11 @@ Conclusión
 0 vulnerabilidades altas, medias o bajas. Las cuatro alertas son
 informativas, y el único fallo real que apareció, el 500 del carácter
 nulo, está corregido y cubierto por pruebas.
+
+Escaneo repetido después de unificar la interfaz
+------------------------------------------------
+El primer escaneo autenticado, con DAST-04 ya corregido, se hizo antes de
+trasladar a la interfaz la cartelera, la ficha, el registro y la compra con
+plano. Se repitió sobre el build nuevo con la misma petición de control
+previa (200 en /api/estadisticas/resumen con sesión). Resultado idéntico:
+cuatro alertas informativas, ninguna alta, media ni baja, y ningún 5xx.

@@ -1231,7 +1231,7 @@ cada bloque:
 | SCA, módulo final | `npm audit --omit=dev` | lo que se despliega | Backend 3 moderadas; **panel 0** |
 | SAST, módulo final | Semgrep con `p/javascript`, `p/nodejs`, `p/owasp-top-ten` y `p/react` | 75 reglas, 133 archivos, incluida la interfaz en React | 0 hallazgos |
 | Pruebas de API, módulo final | Swagger UI con Authorize y `BearerAuth` | sin token, rol que no corresponde, cuerpo inválido, operación correcta y restablecimiento sin API Key | 401, 403, 400 con el error de cada campo, 200 y 400 |
-| DAST, módulo final | OWASP ZAP 2.17.0, escaneo activo **autenticado** | 61 URLs del OpenAPI y 27 del panel compilado | 4 informativas; 0 altas, medias o bajas; 0 respuestas 5xx tras corregir DAST-04 |
+| DAST, módulo final | OWASP ZAP 2.17.0, escaneo activo **autenticado** | 61 URLs del OpenAPI y 27 de la interfaz compilada, ya unificada | 4 informativas; 0 altas, medias o bajas; 0 respuestas 5xx tras corregir DAST-04 |
 
 **SCA.** Sin vulnerabilidades. `npm audit fix` no modificó el
 `package-lock.json`. Aviso de obsolescencia, sin vulnerabilidad asociada, en

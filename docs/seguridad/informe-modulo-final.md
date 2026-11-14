@@ -285,9 +285,9 @@ escribe en ningún archivo.
 Las cuatro informativas, con su explicación completa en
 [`dast-zap-modulo-final.txt`](dast-zap-modulo-final.txt): ZAP reconoce que es una
 SPA; la CSP está en cabecera y en `<meta>` a la vez, y coinciden; un
-«comentario sospechoso» que es el texto «todo público» de la clasificación G
-(ZAP buscaba la palabra inglesa *TODO*); y las peticiones que llevan correo y
-contraseña.
+«comentario sospechoso» que es la palabra «Todo» del botón de filtro de la
+cartelera (ZAP busca el *TODO* de los programadores); y las peticiones que
+llevan correo y contraseña.
 
 El escaneo dejó dos lecciones, las dos en el apartado 7:
 
@@ -296,15 +296,15 @@ El escaneo dejó dos lecciones, las dos en el apartado 7:
   mostró que la cabecera no llegaba. Sin esa comprobación, el informe habría
   dicho «0 alertas» sobre una API que ZAP solo había visto desde la puerta.
 - **El autenticado encontró un 500 que ZAP no listó como alerta**: lo mostró el
-  registro del servidor. Corregido, el segundo escaneo autenticado, de 9 min
-  24 s, terminó **sin un solo 5xx**; el filtro nuevo rechazó con 400 los 21
-  intentos de colar un carácter nulo.
+  registro del servidor. Corregido, el escaneo autenticado terminó **sin un
+  solo 5xx**.
 
-El escaneo se hizo antes de unificar la interfaz (apartado 5). La unificación
-no añadió nada al backend: le quitó la ruta `/sala/config.js` y los archivos
-estáticos de la Sala. Las páginas nuevas de la interfaz —cartelera, ficha,
-registro y plano— consumen las mismas rutas públicas que ya se escanearon y se
-sirven con las mismas cabeceras.
+**El escaneo definitivo es posterior a la unificación** (apartado 5): se
+repitió sobre el build con la cartelera, la ficha, el registro y la compra con
+plano, con la misma petición de control previa. Duró 8 min 44 s, el filtro
+rechazó con 400 los 22 intentos de colar un carácter nulo, y el resultado fue
+el mismo: cuatro informativas y ningún 5xx. Las capturas 41 y 42 son de ese
+informe.
 
 ### 6.5 Revisión en el navegador
 
