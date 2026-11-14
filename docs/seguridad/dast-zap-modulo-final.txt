@@ -1,0 +1,88 @@
+DAST - Módulo final - Resumen del escaneo con OWASP ZAP
+========================================================
+
+Herramienta:   OWASP ZAP 2.17.0, sin interfaz, con su marco de automatización
+Fecha:         13/11/2026
+Objetivos:     http://localhost:3000/api    la API, a partir de /openapi.json
+               http://localhost:4173        el panel compilado (vite preview)
+Sesión:        el escaneo activo de la API va autenticado como administrador.
+               El JWT entra por las variables ZAP_AUTH_HEADER* y no se
+               escribe en ningún archivo.
+
+Plan
+----
+1. openapi          61 URLs importadas del OpenAPI
+2. spider           27 URLs del panel
+3. passiveScan-wait
+4. activeScan       sobre la API, 9 min 24 s
+5. informes         JSON y HTML
+
+Antes de escanear, una petición de control a /api/estadisticas/resumen,
+que sin token responde 401, tiene que dar 200: así se comprueba que el
+escaneo de verdad entra con sesión.
+
+Respuestas del servidor durante el escaneo final
+------------------------------------------------
+5xx (errores servidor):    0
+Rechazos por carácter nulo: 21  (400, por el filtro nuevo)
+Conflictos de unicidad:      1  (409)
+
+Alertas
+-------
+Alto:           0
+Medio:          0
+Bajo:           0
+Informativo:    4
+
+1) Aplicación Web Moderna - Informativo - SIN RIESGO
+   Sitio:   panel
+   Motivo:  ZAP detecta que es una SPA y sugiere usar su spider AJAX. Es
+            una descripción de la aplicación, no un fallo.
+
+2) CSP: Header & Meta - Informativo - JUSTIFICADO
+   Sitio:   panel
+   Motivo:  El build lleva la CSP en un <meta> y vite preview la envía
+            también como cabecera. Las dos coinciden; la cabecera añade
+            frame-ancestors 'none', que en un <meta> no tiene efecto. El
+            <meta> se mantiene para que el panel quede protegido aunque lo
+            sirva un servidor que no envíe cabeceras.
+
+3) Divulgación de información - Comentarios sospechosos - FALSO POSITIVO
+   Sitio:   panel, /assets/index-*.js
+   Evidencia: "G · todo público"
+   Motivo:  ZAP busca la palabra TODO de los comentarios de programador.
+            Aquí es el español "todo público", el texto de la
+            clasificación G de un evento. El bundle no tiene comentarios.
+
+4) Petición de Autenticación Identificada - Informativo - SIN RIESGO
+   Sitio:   API
+   Rutas:   POST /api/auth/login, /api/auth/registro,
+            /api/auth/restablecer-con-codigo, /api/usuarios
+   Motivo:  ZAP reconoce peticiones que llevan correo y contraseña. Es
+            información para configurar su autenticación, no un fallo.
+
+Hallazgos que salieron del proceso
+----------------------------------
+DAST-03  El primer escaneo activo no iba autenticado. La regla de
+         sustitución de ZAP no inyectó el token y solo probó la API desde
+         fuera: 2 min 40 s y ninguna ruta con sesión. Se detectó con la
+         petición de control (401 en lugar de 200) y un servidor de eco
+         que mostró que la cabecera no llegaba. Se pasó a las variables
+         ZAP_AUTH_HEADER*, con ZAP_AUTH_HEADER_SITE como nombre de host
+         sin puerto.
+
+DAST-04  El escaneo autenticado provocó un 500: un carácter nulo en
+         GET /api/usuarios?q= llegaba hasta PostgreSQL, que no lo admite en
+         un texto (código 22021). ZAP no lo listó como alerta; lo mostró el
+         registro del servidor. La misma petición con un nulo en el nombre
+         de POST /api/auth/registro también daba 500, y ese fallo era
+         anterior a este módulo. Corregido con rechazarCaracterNulo, un
+         middleware tras express.json que responde 400, y con una red de
+         seguridad en manejarError para el código 22021. El segundo
+         escaneo autenticado terminó sin un solo 5xx.
+
+Conclusión
+----------
+0 vulnerabilidades altas, medias o bajas. Las cuatro alertas son
+informativas, y el único fallo real que apareció, el 500 del carácter
+nulo, está corregido y cubierto por pruebas.

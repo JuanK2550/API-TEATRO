@@ -1,0 +1,101 @@
+API_TEATRO — Módulo final — SCA con npm audit
+Fecha: 2026-11-13 16:39
+Node: v24.15.0   npm: 11.12.1
+
+Dos proyectos: el backend en la raíz y el panel en teatro-frontend/.
+
+================================================================
+BACKEND · $ npm audit
+================================================================
+# npm audit report
+
+glob  9.0.0 - 14.0.1
+Severity: moderate
+Glob: AbortSignal cancellation bypass allows post-timeout filesystem traversal - https://github.com/advisories/GHSA-3g3m-2fjr-6pw4
+Depends on vulnerable versions of minimatch
+fix available via `npm audit fix --force`
+Will install swagger-jsdoc@6.2.8, which is a breaking change
+node_modules/glob
+  swagger-jsdoc  6.3.0
+  Depends on vulnerable versions of glob
+  node_modules/swagger-jsdoc
+
+minimatch  7.0.0 - 11.0.0
+Severity: moderate
+minimatch has potential denial of service via globparts amplification - https://github.com/advisories/GHSA-g3hv-75wg-m249
+fix available via `npm audit fix --force`
+Will install swagger-jsdoc@6.2.8, which is a breaking change
+node_modules/minimatch
+  nodemon  >=3.1.12
+  Depends on vulnerable versions of minimatch
+  node_modules/nodemon
+
+4 moderate severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+================================================================
+BACKEND · $ npm audit --omit=dev     (lo que se despliega)
+================================================================
+# npm audit report
+
+glob  9.0.0 - 14.0.1
+Severity: moderate
+Glob: AbortSignal cancellation bypass allows post-timeout filesystem traversal - https://github.com/advisories/GHSA-3g3m-2fjr-6pw4
+Depends on vulnerable versions of minimatch
+fix available via `npm audit fix --force`
+Will install swagger-jsdoc@6.2.8, which is a breaking change
+node_modules/glob
+  swagger-jsdoc  6.3.0
+  Depends on vulnerable versions of glob
+  node_modules/swagger-jsdoc
+
+minimatch  7.0.0 - 11.0.0
+Severity: moderate
+minimatch has potential denial of service via globparts amplification - https://github.com/advisories/GHSA-g3hv-75wg-m249
+fix available via `npm audit fix --force`
+Will install swagger-jsdoc@6.2.8, which is a breaking change
+node_modules/minimatch
+
+3 moderate severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+================================================================
+PANEL · estado inicial, con ESLint 10.14.0
+================================================================
+4 moderadas: minimatch 7.0.0 - 11.0.0 (GHSA-g3hv-75wg-m249), dentro de
+ESLint y @eslint/config-array. Solo desarrollo: npm audit --omit=dev daba
+0. En ese momento la única corrección de npm era --force, que bajaba
+ESLint a la 9, y no se aplicó.
+
+Al repetir el análisis antes de cerrar, npm ya ofrecía una corrección
+sin --force: ESLint 10.15.0 trae el minimatch corregido. Se aplicó con
+npm audit fix, y npm run lint y npm run build siguen sin errores.
+
+================================================================
+PANEL · $ npm audit                  (tras npm audit fix)
+================================================================
+found 0 vulnerabilities
+
+================================================================
+PANEL · $ npm audit --omit=dev     (lo que llega al navegador)
+================================================================
+found 0 vulnerabilities
+
+================================================================
+VALORACIÓN
+================================================================
+Panel: cero vulnerabilidades, también en las de desarrollo.
+
+Backend: las cuatro moderadas de siempre, en glob y minimatch, por
+swagger-jsdoc y nodemon; tres en lo que se despliega, por swagger-jsdoc.
+Son las mismas del bloque 11: el módulo final no añadió ninguna
+dependencia al backend. Ninguna es alcanzable desde una petición: el
+único patrón que resuelven es la constante apis: ["./src/routes/*.js"],
+evaluada una vez al arrancar. La única corrección que ofrece npm es
+bajar swagger-jsdoc de 6.3.0 a 6.2.8, y no se aplica: se deja
+constancia del hallazgo en lugar de degradar una herramienta para que
+la tabla diga cero.

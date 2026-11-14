@@ -1,0 +1,57 @@
+API_TEATRO — Módulo final — SAST con Semgrep
+Fecha: 2026-11-13 15:49
+
+Reglas: p/javascript, p/nodejs, p/owasp-top-ten, p/react
+Alcance: src/ scripts/ pruebas/ teatro-frontend/src/ teatro-frontend/vite.config.js
+(frontend/, la Sala, se retiró al unificar la interfaz)
+
+Con la imagen oficial en Docker, porque Smart App Control de Windows
+bloquea semgrep-core.exe instalado de forma nativa. No se desactivo esa
+proteccion: se uso el contenedor.
+
+$ docker run --rm -v <proyecto>:/src -w /src semgrep/semgrep \
+    semgrep scan --config=p/javascript --config=p/nodejs \
+    --config=p/owasp-top-ten --config=p/react --metrics=off \
+    --no-git-ignore --exclude=node_modules --exclude=.git --exclude=dist \
+    src scripts pruebas teatro-frontend/src teatro-frontend/vite.config.js
+
+================================================================
+               
+               
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 133 files with 563 Code rules:
+                                                                                                                        
+  Language      Rules   Files          Origin      Rules                                                                
+ ─────────────────────────────        ───────────────────                                                               
+  <multilang>       6     133          Community     563                                                                
+  js               68     126                                                                                           
+  bash              1       1                                                                                           
+                                                                                                                        
+                
+                
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ Scan completed successfully.
+ • Findings: 0 (0 blocking)
+ • Rules run: 75
+ • Targets scanned: 133
+ • Parsed lines: ~100.0%
+ • No ignore information available
+Ran 75 rules on 133 files: 0 findings.
+(need more rules? `semgrep login` for additional free Semgrep Registry rules)
+
+
+If Semgrep missed a finding, please send us feedback to let us know!
+See https://semgrep.dev/docs/reporting-false-negatives/
+
+================================================================
+Comprobacion aparte: solo p/react sobre el panel
+================================================================
+$ semgrep scan --config=p/react ... teatro-frontend/src
+ • Findings: 0 (0 blocking)
+ • Rules run: 4
+ • Targets scanned: 55
+Ran 4 rules on 55 files: 0 findings.
