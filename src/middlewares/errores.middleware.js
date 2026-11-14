@@ -49,6 +49,12 @@ const MENSAJES_UNICIDAD = {
 const CODIGO_UNICIDAD = "23505";
 
 // ========================================
+// Codificación inválida en PostgreSQL
+// Red de seguridad por si un carácter nulo esquiva el filtro de entrada
+// ========================================
+const CODIGO_CODIFICACION = "22021";
+
+// ========================================
 // Manejar error
 // Registra el detalle en consola y devuelve al cliente un mensaje genérico
 // ========================================
@@ -63,6 +69,11 @@ const manejarError = (error, req, res, next) => {
         MENSAJES_UNICIDAD[error.constraint] ||
         "El registro entra en conflicto con otro que ya existe"
     });
+  }
+
+  if (error && error.code === CODIGO_CODIFICACION) {
+    console.warn(`Petición rechazada: codificación inválida en ${req.method} ${req.path}`);
+    return res.status(400).json({ mensaje: "Datos de entrada inválidos" });
   }
 
   const codigoCliente = codigoDeCliente(error);

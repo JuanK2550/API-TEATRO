@@ -44,7 +44,7 @@ const esEstadoModificable = (estado) => !ESTADOS_NO_MODIFICABLES.includes(estado
 // vuelve a armar con json_agg y aquí solo se renombra.
 // PostgreSQL devuelve TIME como "19:00:00" y la API siempre ha dicho "19:00",
 // que es además el formato que exige el validador. Los segundos se recortan
-// aquí, en la frontera, para que ni los controladores ni la Sala se enteren de
+// aquí, en la frontera, para que ni los controladores ni el panel se enteren de
 // que el tipo de la columna trae más precisión de la que el teatro usa.
 const aHoraCorta = (hora) =>
   typeof hora === "string" ? hora.slice(0, 5) : hora;

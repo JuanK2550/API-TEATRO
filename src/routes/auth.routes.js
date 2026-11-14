@@ -176,18 +176,6 @@ const limiteRecuperacion = rateLimit({
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/ErrorValidacion"
- *       401:
- *         description: API Key ausente o inválida
- *         content:
- *           application/json:
- *             schema:
- *               $ref: "#/components/schemas/Error"
- *       403:
- *         description: API Key deshabilitada
- *         content:
- *           application/json:
- *             schema:
- *               $ref: "#/components/schemas/Error"
  *       409:
  *         description: El correo electrónico ya está registrado
  *         content:
@@ -243,13 +231,13 @@ router.post(
  *             schema:
  *               $ref: "#/components/schemas/ErrorValidacion"
  *       401:
- *         description: Credenciales inválidas, o API Key ausente o inválida
+ *         description: Credenciales inválidas
  *         content:
  *           application/json:
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       403:
- *         description: Usuario deshabilitado, o API Key deshabilitada
+ *         description: Usuario deshabilitado
  *         content:
  *           application/json:
  *             schema:
@@ -271,7 +259,7 @@ router.post(
 
 // ========================================
 // GET /api/auth/perfil
-// Exige las dos credenciales: API Key del cliente y JWT del usuario
+// Basta el JWT; el cliente solo aparece si la petición trae clave
 // ========================================
 /**
  * @openapi
@@ -281,8 +269,8 @@ router.post(
  *     summary: Devuelve quién está autenticado
  *     description: >
  *       Lee el JWT de la cabecera Authorization y devuelve la persona que lo
- *       presentó, junto al cliente dueño de la API Key. Hacen falta las dos
- *       credenciales a la vez.
+ *       presentó. Si la petición trae además una API Key válida, incluye el
+ *       cliente dueño de esa clave en clienteApi.
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -320,13 +308,7 @@ router.post(
  *                       type: string
  *                       example: Postman Laboratorio
  *       401:
- *         description: Falta el token, tiene mal formato, está expirado o es inválido; o la API Key es incorrecta
- *         content:
- *           application/json:
- *             schema:
- *               $ref: "#/components/schemas/Error"
- *       403:
- *         description: API Key deshabilitada
+ *         description: Falta el token, tiene mal formato, está expirado, es inválido o fue revocado
  *         content:
  *           application/json:
  *             schema:
@@ -495,9 +477,11 @@ router.post(
  *     tags: [Autenticación]
  *     summary: Restablecer la contraseña con un token de recuperación
  *     description: >
- *       No necesita sesión, por definición. Consume el token, sube la versión
+ *       No necesita credenciales, por definición: quien lo usa perdió el
+ *       acceso. Lo protege el propio token, de 256 bits y un solo uso, y un
+ *       límite de diez intentos por ventana. Consume el token, sube la versión
  *       de sesión y anula los códigos de respaldo que hubiera sin usar.
- *     security: [{ ApiKeyAuth: [] }]
+ *     security: []
  *     requestBody:
  *       required: true
  *       content:
@@ -678,9 +662,11 @@ router.post(
  *     tags: [Autenticación]
  *     summary: Restablecer la contraseña con un código de respaldo
  *     description: >
- *       Tampoco necesita sesión. Gasta solo el código usado y deja los demás
- *       en pie; anula los tokens administrativos pendientes de esa cuenta.
- *     security: [{ ApiKeyAuth: [] }]
+ *       Tampoco necesita credenciales. Lo protege el propio código, de 128 bits
+ *       y un solo uso, ligado además al correo de la cuenta, y un límite de diez
+ *       intentos por ventana. Gasta solo el código usado y deja los demás en
+ *       pie; anula los tokens administrativos pendientes de esa cuenta.
+ *     security: []
  *     requestBody:
  *       required: true
  *       content:

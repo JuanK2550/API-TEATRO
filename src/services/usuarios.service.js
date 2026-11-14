@@ -1,7 +1,7 @@
 // ========================================
 // Importaciones
 // ========================================
-const { consultar, pool } = require("../config/database");
+const { consultar, enTransaccion, pool } = require("../config/database");
 const {
   generarPasswordHash,
   verificarPassword
@@ -300,17 +300,164 @@ const crearAdministradorInicial = async () => {
 };
 
 // ========================================
+// Ficha administrativa de un usuario
+// Nunca lleva el hash ni la versión de sesión
+// ========================================
+const aFicha = (fila) => ({
+  id: fila.id,
+  nombre: fila.nombre,
+  email: fila.email,
+  rol: fila.rol,
+  activo: fila.activo,
+  fechaRegistro: fila.fecha_registro
+});
+
+const USUARIOS_POR_PAGINA = 20;
+const LIMITE_BUSQUEDA = 20;
+
+// ========================================
+// Listar usuarios con filtros y paginación
+// ========================================
+const listarUsuarios = async ({ q = "", rol = null, activo = null, pagina = 1 }) => {
+  const parametros = [q.toLowerCase(), rol, activo];
+  const filtro = `
+    FROM public.usuarios u
+    JOIN public.roles r ON r.id = u.rol_id
+    WHERE (POSITION($1 IN LOWER(u.nombre)) > 0 OR POSITION($1 IN LOWER(u.email)) > 0)
+      AND ($2::text IS NULL OR r.nombre = $2)
+      AND ($3::boolean IS NULL OR u.activo = $3)
+  `;
+
+  const total = await consultar(`SELECT COUNT(*)::int AS total ${filtro}`, parametros);
+  const { rows } = await consultar(
+    `SELECT u.id, u.nombre, u.email, u.activo, u.fecha_registro, r.nombre AS rol
+     ${filtro}
+     ORDER BY u.id DESC
+     LIMIT ${USUARIOS_POR_PAGINA} OFFSET $4`,
+    [...parametros, (pagina - 1) * USUARIOS_POR_PAGINA]
+  );
+
+  return {
+    usuarios: rows.map(aFicha),
+    total: total.rows[0].total,
+    pagina,
+    porPagina: USUARIOS_POR_PAGINA
+  };
+};
+
+// ========================================
+// Buscar cuentas activas para la recuperación administrativa
+// ========================================
+const buscarParaRecuperacion = async (texto) => {
+  const { rows } = await consultar(
+    `SELECT u.id, u.nombre, u.email, u.activo, u.fecha_registro, r.nombre AS rol
+     FROM public.usuarios u
+     JOIN public.roles r ON r.id = u.rol_id
+     WHERE u.activo = TRUE
+       AND (POSITION($1 IN LOWER(u.nombre)) > 0 OR POSITION($1 IN LOWER(u.email)) > 0)
+     ORDER BY u.nombre, u.id
+     LIMIT ${LIMITE_BUSQUEDA}`,
+    [texto.toLowerCase()]
+  );
+
+  return rows.map(({ id, nombre, email, rol }) => ({ id, nombre, email, rol }));
+};
+
+// ========================================
+// Actualizar nombre y correo
+// El rol y la contraseña no se tocan por esta vía
+// ========================================
+const actualizarUsuario = async (id, { nombre, email }) => {
+  const { rows } = await consultar(
+    `WITH cambiado AS (
+       UPDATE public.usuarios
+       SET nombre = $1, email = LOWER($2)
+       WHERE id = $3
+       RETURNING id, nombre, email, activo, fecha_registro, rol_id
+     )
+     SELECT c.id, c.nombre, c.email, c.activo, c.fecha_registro, r.nombre AS rol
+     FROM cambiado c
+     JOIN public.roles r ON r.id = c.rol_id`,
+    [nombre, email, Number(id)]
+  );
+
+  return rows[0] ? aFicha(rows[0]) : null;
+};
+
+// ========================================
+// Activar o desactivar una cuenta
+// Desactivar sube la versión de sesión y protege al último administrador
+// ========================================
+const CLAVE_BLOQUEO_ESTADO = [7505, 2];
+
+const cambiarEstadoUsuario = async (id, activo, idSolicitante) => {
+  if (!activo && Number(id) === Number(idSolicitante)) {
+    return { estado: "PROPIA" };
+  }
+
+  return enTransaccion(async (consulta) => {
+    await consulta("SELECT pg_advisory_xact_lock($1, $2)", CLAVE_BLOQUEO_ESTADO);
+
+    const actual = await consulta(
+      `SELECT u.id, u.activo, r.nombre AS rol
+       FROM public.usuarios u
+       JOIN public.roles r ON r.id = u.rol_id
+       WHERE u.id = $1
+       FOR UPDATE OF u`,
+      [Number(id)]
+    );
+
+    if (actual.rows.length === 0) return { estado: "NO_EXISTE" };
+
+    const { rol, activo: activoAhora } = actual.rows[0];
+
+    if (!activo && activoAhora && rol === "administrador") {
+      const conteo = await consulta(
+        `SELECT COUNT(*)::int AS total
+         FROM public.usuarios u
+         JOIN public.roles r ON r.id = u.rol_id
+         WHERE r.nombre = 'administrador' AND u.activo = TRUE`
+      );
+
+      if (conteo.rows[0].total <= 1) return { estado: "ULTIMO_ADMINISTRADOR" };
+    }
+
+    const { rows } = await consulta(
+      `WITH cambiado AS (
+         UPDATE public.usuarios
+         SET activo = $1,
+             version_sesion = version_sesion
+               + CASE WHEN activo IS DISTINCT FROM $1 THEN 1 ELSE 0 END
+         WHERE id = $2
+         RETURNING id, nombre, email, activo, fecha_registro, rol_id
+       )
+       SELECT c.id, c.nombre, c.email, c.activo, c.fecha_registro, r.nombre AS rol
+       FROM cambiado c
+       JOIN public.roles r ON r.id = c.rol_id`,
+      [activo, Number(id)]
+    );
+
+    return { estado: "OK", usuario: aFicha(rows[0]) };
+  });
+};
+
+// ========================================
 // Exportaciones
 // ========================================
 module.exports = {
   ROLES,
   ROL_POR_DEFECTO,
   ROLES_ADMINISTRATIVOS,
+  USUARIOS_POR_PAGINA,
   obtenerUsuarioPorEmail,
   obtenerUsuarioPorId,
   crearUsuario,
   crearUsuarioAdministrativo,
   verificarCredenciales,
   cambiarPasswordPropio,
-  crearAdministradorInicial
+  crearAdministradorInicial,
+  listarUsuarios,
+  buscarParaRecuperacion,
+  actualizarUsuario,
+  cambiarEstadoUsuario
 };

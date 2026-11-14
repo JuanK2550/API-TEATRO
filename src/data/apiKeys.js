@@ -45,9 +45,9 @@ const apiKeys = [
     creadaEn: "2026-09-21"
   },
   // Desactivada en el bloque 11. Durante varios bloques esta clave se entregó
-  // al navegador en /sala/config.js, así que hay que darla por conocida: no es
-  // un secreto que se pueda recuperar, es una clave quemada. La Sala ya no la
-  // usa —navega el catálogo sin credenciales y lo demás con JWT—, así que
+  // al navegador, así que hay que darla por conocida: no es un secreto que se
+  // pueda recuperar, es una clave quemada. Ninguna interfaz la usa —el
+  // catálogo se lee sin credenciales y lo demás va con JWT—, así que
   // desactivarla no rompe nada y cierra una puerta que estaba abierta.
   //
   // Si algún día hace falta un cliente web con sesión propia, se registra uno

@@ -85,7 +85,7 @@ const obtenerAsistentePorId = async (req, res) => {
 // Los datos de asistente de quien presenta el token
 // ========================================
 // El id no viaja en la dirección: sale del token. Así nadie puede pedir los
-// datos de otra persona cambiando un número, y la Sala no necesita preguntar
+// datos de otra persona cambiando un número, y el panel no necesita preguntar
 // si un documento existe.
 const obtenerMiAsistente = async (req, res) => {
   const asistente = await asistentesService.buscarAsistentePorUsuario(req.usuario.id);

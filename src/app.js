@@ -17,6 +17,7 @@ const {
 } = require("./middlewares/errores.middleware");
 
 const validarApiKey = require("./middlewares/apiKey.middleware");
+const { rechazarCaracterNulo } = require("./middlewares/entrada.middleware");
 
 const asistentesRoutes = require("./routes/asistentes.routes");
 const eventosRoutes = require("./routes/eventos.routes");
@@ -26,11 +27,11 @@ const boletasRoutes = require("./routes/boletas.routes");
 const seguridadRoutes = require("./routes/seguridad.routes");
 const authRoutes = require("./routes/auth.routes");
 const usuariosRoutes = require("./routes/usuarios.routes");
+const estadisticasRoutes = require("./routes/estadisticas.routes");
 
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./docs/swagger");
 
-const path = require("path");
 
 // ========================================
 // Configuración base
@@ -38,10 +39,10 @@ const path = require("path");
 // ========================================
 const app = express();
 const PUERTO = process.env.PORT || 3000;
-// ALLOWED_ORIGIN admite varios orígenes separados por comas: el de la propia
-// API, que sirve la Sala, y el del servidor de desarrollo de la SPA que viene
-// en el bloque siguiente. Lo que no se nombra aquí, no entra.
-const ORIGENES_PERMITIDOS = (process.env.ALLOWED_ORIGIN || "http://localhost:3000")
+// ALLOWED_ORIGIN admite varios orígenes separados por comas. La interfaz es el
+// panel en React (teatro-frontend), que corre en otro origen: en desarrollo,
+// http://localhost:5173. Lo que no se nombra aquí, no entra.
+const ORIGENES_PERMITIDOS = (process.env.ALLOWED_ORIGIN || "http://localhost:5173")
   .split(",")
   .map((origen) => origen.trim())
   .filter(Boolean);
@@ -60,10 +61,11 @@ app.use(
     // Sin cabecera Origin la petición no viene de un navegador —curl, Postman,
     // las propias pruebas— y CORS no pinta nada ahí: no es una protección del
     // servidor, es una regla que el navegador aplica en nombre del usuario.
+    // Un origen ajeno recibe la respuesta sin Access-Control-Allow-Origin y su
+    // navegador no la deja leer. No es un error del servidor: rechazarlo con
+    // un Error lo convertía en un 500 y en una línea de console.error.
     origin: (origen, continuar) =>
-      !origen || ORIGENES_PERMITIDOS.includes(origen)
-        ? continuar(null, true)
-        : continuar(new Error("Origen no permitido por CORS")),
+      continuar(null, !origen || ORIGENES_PERMITIDOS.includes(origen)),
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
   })
 );
@@ -72,6 +74,7 @@ app.use(
 // Middlewares de parseo
 // ========================================
 app.use(express.json({ limit: "10kb" }));
+app.use(rechazarCaracterNulo);
 
 // ========================================
 // Límite de peticiones
@@ -90,11 +93,11 @@ app.use("/api", limitador);
 // ========================================
 // Quién exige API Key y quién no
 // ========================================
-// Hasta el bloque 11 la exigía todo /api, y por eso la Sala recibía la clave
-// desde /sala/config.js. Una clave servida a un navegador no es un secreto:
-// cualquiera la lee en el inspector. Lo que de verdad identifica a la persona
-// es el JWT, y lo que protege las lecturas públicas es que no haya nada
-// privado en ellas.
+// Hasta el bloque 11 la exigía todo /api, y por eso la interfaz de entonces
+// recibía la clave desde el servidor. Una clave servida a un navegador no es
+// un secreto: cualquiera la lee en el inspector. Lo que de verdad identifica
+// a la persona es el JWT, y lo que protege las lecturas públicas es que no
+// haya nada privado en ellas.
 //
 // Así que la API Key se queda donde sí significa algo: en las integraciones
 // que no tienen sesión y no son un navegador.
@@ -106,7 +109,8 @@ const RECURSOS = new Set([
   "/eventos",
   "/funciones",
   "/localidades",
-  "/usuarios"
+  "/usuarios",
+  "/estadisticas"
 ]);
 
 // Rutas de autenticación que se resuelven con JWT, sin API Key.
@@ -117,8 +121,14 @@ const AUTH_CON_SESION = new Set([
   "/auth/codigos-recuperacion"
 ]);
 
-// Las dos públicas de verdad: quien entra o se registra todavía no tiene nada.
-const AUTH_PUBLICAS = new Set(["/auth/login", "/auth/registro"]);
+// Públicas: quien entra o se registra todavía no tiene nada, y quien restablece
+// perdió el acceso. Las dos últimas las protege el propio secreto de un solo uso.
+const AUTH_PUBLICAS = new Set([
+  "/auth/login",
+  "/auth/registro",
+  "/auth/restablecer-password",
+  "/auth/restablecer-con-codigo"
+]);
 
 app.use("/api", (req, res, next) => {
   if (req.method === "POST" && AUTH_PUBLICAS.has(req.path)) return next();
@@ -129,8 +139,7 @@ app.use("/api", (req, res, next) => {
   const rutaAuth = "/" + req.path.split("/").slice(1, 3).join("/");
   if (AUTH_CON_SESION.has(rutaAuth)) return next();
 
-  // Lo que queda: /seguridad/cliente y las dos rutas de restablecimiento, que
-  // no tienen sesión porque quien las usa perdió el acceso.
+  // Lo que queda es /seguridad/cliente: una integración sin sesión.
   return validarApiKey(req, res, next);
 });
 
@@ -152,63 +161,7 @@ app.use("/api/boletas", boletasRoutes);
 app.use("/api/seguridad", seguridadRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usuariosRoutes);
-
-// ========================================
-// Sala: el frontend público
-// Se sirve desde el mismo servidor, así que comparte origen con /api
-// ========================================
-// Política de contenido propia, más estricta que la del resto del servidor.
-// El helmet() global deja style-src con 'unsafe-inline', que es su valor por
-// defecto y que /api-docs necesita porque Swagger UI escribe estilos en línea.
-// La Sala no escribe ninguno: no tiene atributos style en el marcado ni bloques
-// <style>, así que aquí style-src puede ser 'self' a secas. Esta cabecera se
-// fija antes de servir nada de /sala y reemplaza a la global solo en estas
-// peticiones.
-app.use(
-  "/sala",
-  helmet.contentSecurityPolicy({
-    useDefaults: true,
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      scriptSrcAttr: ["'none'"],
-      // Sin 'unsafe-inline': la Sala no tiene ni un estilo en línea.
-      styleSrc: ["'self'"],
-      // Las tipografías y las fotografías están dentro del proyecto: no hace
-      // falta permitir https: ni data:.
-      fontSrc: ["'self'"],
-      imgSrc: ["'self'"],
-      connectSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"],
-      frameAncestors: ["'self'"]
-    }
-  })
-);
-
-// Hasta el bloque 11 esta ruta entregaba al navegador la API Key del cliente
-// "Aplicación Web". Era una contradicción: una clave que el navegador descarga
-// la lee cualquiera en el inspector, así que no protegía nada y sí obligaba a
-// tratarla como si fuera un secreto.
-//
-// Ahora solo entrega la ruta base. El catálogo se lee sin credenciales, porque
-// no hay nada privado en él, y todo lo demás viaja con el JWT de quien inició
-// sesión. Aquella clave quedó quemada por los bloques en que se sirvió, así que
-// el cliente 4 está desactivado en src/data/apiKeys.js y no se reactiva.
-app.get("/sala/config.js", (req, res) => {
-  // Desde el bloque 11 no lleva clave: la Sala navega el catálogo sin
-  // credenciales y todo lo demás lo hace con el JWT de quien inicia sesión.
-  const configuracion = { api: "/api" };
-
-  // Sin caché: la clave puede rotar y no debe quedarse guardada en el navegador
-  // ni en ningún intermediario.
-  res.type("application/javascript");
-  res.set("Cache-Control", "no-store");
-  res.send(`window.TEATRO_CONFIG = ${JSON.stringify(configuracion)};\n`);
-});
-
-app.use("/sala", express.static(path.join(__dirname, "..", "frontend")));
+app.use("/api/estadisticas", estadisticasRoutes);
 
 // ========================================
 // Documentación

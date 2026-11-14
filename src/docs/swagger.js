@@ -73,7 +73,12 @@ const definicion = {
     {
       name: "Usuarios",
       description:
-        "Creación de cuentas de taquilla y de administración. Reservada al rol administrador: el registro público solo crea asistentes."
+        "Gestión de cuentas reservada al rol administrador: crear cuentas de taquilla y de administración, listarlas, editarlas y activarlas o desactivarlas. El registro público solo crea asistentes."
+    },
+    {
+      name: "Estadísticas",
+      description:
+        "Cifras agregadas para el panel administrativo. Ningún campo identifica a una persona."
     }
   ],
   components: {
@@ -109,7 +114,8 @@ const definicion = {
         properties: {
           mensaje: {
             type: "string",
-            example: "Boleta no encontrada"
+            description: "Mensaje fijo que explica el error; nunca incluye el detalle interno ni la traza",
+            example: "Mensaje que describe el error"
           }
         }
       },

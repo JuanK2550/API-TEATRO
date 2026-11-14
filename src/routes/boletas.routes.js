@@ -187,7 +187,7 @@ const router = express.Router();
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       401:
- *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         description: Falta el token, es inválido o fue revocado
  *         content:
  *           application/json:
  *             schema:
@@ -233,7 +233,7 @@ router.get(
  *               items:
  *                 $ref: "#/components/schemas/Boleta"
  *       401:
- *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         description: Falta el token, es inválido o fue revocado
  *         content:
  *           application/json:
  *             schema:
@@ -316,7 +316,7 @@ router.get(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       401:
- *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         description: Falta el token, es inválido o fue revocado
  *         content:
  *           application/json:
  *             schema:
@@ -386,7 +386,7 @@ router.get(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       401:
- *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         description: Falta el token, es inválido o fue revocado
  *         content:
  *           application/json:
  *             schema:
@@ -454,7 +454,7 @@ router.get(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       401:
- *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         description: Falta el token, es inválido o fue revocado
  *         content:
  *           application/json:
  *             schema:
@@ -530,7 +530,7 @@ router.get(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       401:
- *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         description: Falta el token, es inválido o fue revocado
  *         content:
  *           application/json:
  *             schema:
@@ -612,7 +612,7 @@ router.post(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       401:
- *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         description: Falta el token, es inválido o fue revocado
  *         content:
  *           application/json:
  *             schema:
@@ -695,7 +695,7 @@ router.put(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       401:
- *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         description: Falta el token, es inválido o fue revocado
  *         content:
  *           application/json:
  *             schema:
@@ -780,7 +780,7 @@ router.patch(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       401:
- *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         description: Falta el token, es inválido o fue revocado
  *         content:
  *           application/json:
  *             schema:
@@ -853,7 +853,7 @@ router.patch(
  *             schema:
  *               $ref: "#/components/schemas/Error"
  *       401:
- *         description: Falta el token, es inválido o la API Key es incorrecta
+ *         description: Falta el token, es inválido o fue revocado
  *         content:
  *           application/json:
  *             schema:
