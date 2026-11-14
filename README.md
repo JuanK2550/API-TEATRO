@@ -31,23 +31,25 @@ El proyecto creció por laboratorios, y cada uno dejó algo en pie. La tabla dic
 qué añadió cada bloque y en qué archivos vive hoy, para poder ir del enunciado
 al código sin buscar.
 
-| Bloque | Qué añadió | Dónde vive |
-| ------ | ---------- | ---------- |
-| Base (fases 1 a 9) | Los cinco recursos, las reglas de negocio, las máquinas de estado y la documentación OpenAPI | [`src/routes/`](src/routes/), [`src/services/`](src/services/), [`src/docs/swagger.js`](src/docs/swagger.js) |
-| Lab. 5 · Integridad referencial y API Key | Relaciones que no se rompen y la primera credencial: `X-API-Key` | [`apiKey.middleware.js`](src/middlewares/apiKey.middleware.js) |
-| Lab. 6 · Múltiples clientes | Varios clientes registrados y las claves guardadas como hash SHA-256, nunca en claro | [`src/data/apiKeys.js`](src/data/apiKeys.js), [`crypto.util.js`](src/utils/crypto.util.js) |
-| Lab. 7 · Usuarios, hashing y salting | Cuentas con contraseña bajo bcrypt, cost 12 y sal por contraseña | [`password.util.js`](src/utils/password.util.js), [`usuarios.service.js`](src/services/usuarios.service.js) |
-| Lab. 8 · Control del rol | El rol lo asigna el servidor; el administrador inicial se siembra desde el entorno | [`usuarios.controller.js`](src/controllers/usuarios.controller.js) |
-| Lab. 9 · Sesión con JWT | Token HS256 con caducidad y algoritmo fijo al firmar y al verificar | [`jwt.util.js`](src/utils/jwt.util.js), [`auth.middleware.js`](src/middlewares/auth.middleware.js) |
-| La Sala · frontend | La primera interfaz, sin framework: cartelera, plano de butacas y compra. **Retirada en el módulo final**: lo que aportaba pasó al panel | Ya no existe; la historia está en [`informe-frontend.md`](docs/seguridad/informe-frontend.md) |
-| Lab. 10 · Autorización | RBAC con `autorizarRoles` y las guardas de propiedad que cierran el IDOR/BOLA | [`roles.middleware.js`](src/middlewares/roles.middleware.js), [`propiedad.middleware.js`](src/middlewares/propiedad.middleware.js) |
-| Bloque 7 · Persistencia | PostgreSQL en Supabase con TLS verificado, rol de privilegio mínimo y RLS en todas las tablas | [`database/`](database/), [`src/config/database.js`](src/config/database.js) |
-| Bloque 8 · Validación integral | El bootstrap del administrador separado del arranque y la tanda completa de pruebas | [`scripts/`](scripts/), [`pruebas/`](pruebas/) |
-| Bloque 11 · Recuperación y credenciales | Versión de sesión para revocar tokens, recuperación administrativa, códigos de respaldo y el reparto de credenciales que saca la API Key del navegador | [`recuperacion.service.js`](src/services/recuperacion.service.js), [`codigosRecuperacion.service.js`](src/services/codigosRecuperacion.service.js), [`publico.middleware.js`](src/middlewares/publico.middleware.js) |
-| Módulo final · Interfaz en React | Una SPA en React + Vite + Bootstrap, la única interfaz: cartelera pública, registro, plano de butacas, un panel por rol, la gestión de cuentas y la recuperación de acceso desde el navegador | [`teatro-frontend/`](teatro-frontend/), [`estadisticas.service.js`](src/services/estadisticas.service.js), [`usuarios.service.js`](src/services/usuarios.service.js) |
+| Bloque | Qué añadió | Dónde vive | Informe |
+| ------ | ---------- | ---------- | ------- |
+| Base (fases 1 a 9) | Los cinco recursos, las reglas de negocio, las máquinas de estado y la documentación OpenAPI | [`src/routes/`](src/routes/), [`src/services/`](src/services/), [`src/docs/swagger.js`](src/docs/swagger.js) | [PDF](docs/entregas/LEVANTAMIENTO%20DE%20LA%20API%20MAS%20PRUEBAS.pdf) |
+| Lab. 5 · Integridad referencial y API Key | Relaciones que no se rompen y la primera credencial: `X-API-Key` | [`apiKey.middleware.js`](src/middlewares/apiKey.middleware.js) | [PDF](docs/entregas/Integridad%20referencial%20%2B%20API%20Keys.pdf) |
+| Lab. 6 · Múltiples clientes | Varios clientes registrados y las claves guardadas como hash SHA-256, nunca en claro | [`src/data/apiKeys.js`](src/data/apiKeys.js), [`crypto.util.js`](src/utils/crypto.util.js) | [PDF](docs/entregas/M%C3%BAltiples%20clientes%20%2B%20API%20Keys%20almacenadas%20como%20hash.pdf) |
+| Lab. 7 · Usuarios, hashing y salting | Cuentas con contraseña bajo bcrypt, cost 12 y sal por contraseña | [`password.util.js`](src/utils/password.util.js), [`usuarios.service.js`](src/services/usuarios.service.js) | [PDF](docs/entregas/Usuarios%20%2B%20Hashing%20%2B%20Salting%20%C2%B7%20API_TEATRO.pdf) |
+| Lab. 8 · Control del rol | El rol lo asigna el servidor; el administrador inicial se siembra desde el entorno | [`usuarios.controller.js`](src/controllers/usuarios.controller.js) | [PDF](docs/entregas/Control%20del%20rol%20y%20prevenci%C3%B3n%20de%20escalada%20de%20privilegios%20%C2%B7%20API_TEATRO.pdf) |
+| Lab. 9 · Sesión con JWT | Token HS256 con caducidad y algoritmo fijo al firmar y al verificar | [`jwt.util.js`](src/utils/jwt.util.js), [`auth.middleware.js`](src/middlewares/auth.middleware.js) | [PDF](docs/entregas/Autenticaci%C3%B3n%20con%20JWT%20-%20API_TEATRO.pdf) |
+| La Sala · frontend | La primera interfaz, sin framework: cartelera, plano de butacas y compra. **Retirada en el módulo final**: lo que aportaba pasó al panel | Ya no existe | — |
+| Lab. 10 · Autorización | RBAC con `autorizarRoles` y las guardas de propiedad que cierran el IDOR/BOLA | [`roles.middleware.js`](src/middlewares/roles.middleware.js), [`propiedad.middleware.js`](src/middlewares/propiedad.middleware.js) | [PDF](docs/entregas/Autorizaci%C3%B3n%20Segura%20en%20APIs%20REST%20-%20API%20-%20TEATRO.pdf) |
+| Bloque 7 · Persistencia | PostgreSQL en Supabase con TLS verificado, rol de privilegio mínimo y RLS en todas las tablas | [`database/`](database/), [`src/config/database.js`](src/config/database.js) | [PDF](docs/entregas/Bloque%207%20-%20Supabase%20y%20PostgreSQL%20-%20persistencia%20segura%20-%20API_TEATRO.pdf) |
+| Bloque 8 · Validación integral | El bootstrap del administrador separado del arranque y la tanda completa de pruebas | [`scripts/`](scripts/), [`pruebas/`](pruebas/) | [PDF](docs/entregas/BLOQUE%208%20-%20bootstrap%20validacion%20API_TEATRO.pdf) |
+| Bloque 11 · Recuperación y credenciales | Versión de sesión para revocar tokens, recuperación administrativa, códigos de respaldo y el reparto de credenciales que saca la API Key del navegador | [`recuperacion.service.js`](src/services/recuperacion.service.js), [`codigosRecuperacion.service.js`](src/services/codigosRecuperacion.service.js), [`publico.middleware.js`](src/middlewares/publico.middleware.js) | [PDF](docs/entregas/Bloque11%20-%20Recuperacion%20-%20Credenciales%20-%20API_TEATRO.pdf) |
+| Módulo final · Interfaz en React | Una SPA en React + Vite + Bootstrap, la única interfaz: cartelera pública, registro, plano de butacas, un panel por rol, la gestión de cuentas y la recuperación de acceso desde el navegador | [`teatro-frontend/`](teatro-frontend/), [`estadisticas.service.js`](src/services/estadisticas.service.js), [`usuarios.service.js`](src/services/usuarios.service.js) | [PDF](docs/entregas/ModuloFinal%20-%20Interfaz%20-%20React%20-%20Pruebas%20-%20API_TEATRO.pdf) |
 
-Cada bloque tiene su informe escrito en [`docs/seguridad/`](docs/seguridad/) y
-su PDF de entrega en [`docs/entregas/`](docs/entregas/).
+El informe de cada laboratorio y bloque, con sus capturas, es su PDF de
+[`docs/entregas/`](docs/entregas/), enlazado en la última columna. En
+[`docs/seguridad/`](docs/seguridad/) queda el informe del módulo final con las
+salidas de sus herramientas.
 
 ## Recursos
 
@@ -914,8 +916,8 @@ operaciones distintas, y la segunda no debe repetirse en cada despliegue.
 
 El bootstrap es idempotente: si ya existe cualquier cuenta con rol
 `administrador`, no inserta ni modifica nada. Tampoco convierte en administradora
-una cuenta de otro rol, aunque se le pase su correo. El detalle está en
-[`docs/seguridad/informe-bloque8.md`](docs/seguridad/informe-bloque8.md).
+una cuenta de otro rol, aunque se le pase su correo. El detalle está en el
+[informe del Bloque 8](docs/entregas/BLOQUE%208%20-%20bootstrap%20validacion%20API_TEATRO.pdf).
 
 | Variable | Por defecto | Uso |
 | -------- | ----------- | --- |
@@ -990,7 +992,7 @@ API_TEATRO/
 ├── database/                    # esquema SQL, roles, semilla y verificación
 ├── scripts/                     # preparar la base, rol de la API, administrador inicial y diagnósticos
 ├── docs/entregas/                # informes de entrega en PDF
-├── docs/seguridad/               # salidas de las herramientas e informes por laboratorio
+├── docs/seguridad/               # informe del módulo final y salidas de SCA, SAST y DAST
 ├── teatro-frontend/              # la interfaz: cartelera pública y panel, en React + Vite
 │   ├── index.html
 │   ├── vite.config.js            # CSP del build y cabeceras de seguridad
@@ -1219,24 +1221,19 @@ Las cinco, solo el administrador.
 
 ## Análisis de seguridad
 
-Las capturas de cada prueba están en los informes PDF de
-[`docs/entregas/`](docs/entregas/). En [`docs/seguridad/`](docs/seguridad/) están
-las salidas de las herramientas, una por laboratorio, y el informe escrito de
-cada bloque:
+Los informes de cada laboratorio, con las capturas de cada prueba, son los PDF
+de [`docs/entregas/`](docs/entregas/), listados en
+[Documentación de entregas](#documentación-de-entregas--lab-no5-no6-no7-no8-no9-no10-bloques-7-8-y-11-y-módulo-final).
+En [`docs/seguridad/`](docs/seguridad/) queda la entrega final:
 
-| Informe | Tema |
-| ------- | ---- |
-| [`informe-lab5.md`](docs/seguridad/informe-lab5.md) | Integridad referencial y API Key |
-| [`informe-lab6.md`](docs/seguridad/informe-lab6.md) | Múltiples clientes con API Keys como hash |
-| [`informe-lab7.md`](docs/seguridad/informe-lab7.md) | Usuarios, hashing y salting con bcrypt |
-| [`informe-lab8.md`](docs/seguridad/informe-lab8.md) | Control del rol y escalada de privilegios |
-| [`informe-lab9.md`](docs/seguridad/informe-lab9.md) | Autenticación con JWT |
-| [`informe-frontend.md`](docs/seguridad/informe-frontend.md) | La Sala, la primera interfaz, hoy retirada: XSS, minimización de datos y sesión en memoria |
-| [`informe-lab10.md`](docs/seguridad/informe-lab10.md) | Autorización, RBAC e IDOR/BOLA |
-| [`informe-bloque7.md`](docs/seguridad/informe-bloque7.md) | Supabase y PostgreSQL: persistencia, rol de privilegio mínimo y RLS |
-| [`informe-bloque8.md`](docs/seguridad/informe-bloque8.md) | Validación integral: bootstrap separado y las 53 pruebas del laboratorio |
-| [`informe-bloque11.md`](docs/seguridad/informe-bloque11.md) | Recuperación de acceso, versión de sesión y reparto de credenciales |
-| [`informe-modulo-final.md`](docs/seguridad/informe-modulo-final.md) | El panel de gestión en React y la estrategia de pruebas: API, SCA, SAST y DAST |
+| Archivo | Contenido |
+| ------- | --------- |
+| [`informe-modulo-final.md`](docs/seguridad/informe-modulo-final.md) | La interfaz en React y la estrategia de pruebas: API, SCA, SAST y DAST |
+| [`sca-npm-audit-modulo-final.txt`](docs/seguridad/sca-npm-audit-modulo-final.txt) | `npm audit` del backend y de la interfaz |
+| [`sast-semgrep-modulo-final.txt`](docs/seguridad/sast-semgrep-modulo-final.txt) | Semgrep sobre el backend y la interfaz |
+| [`dast-zap-modulo-final.txt`](docs/seguridad/dast-zap-modulo-final.txt) | OWASP ZAP con el escaneo activo autenticado |
+
+El historial de todos los análisis:
 
 | Técnica | Herramienta | Alcance | Resultado |
 | ------- | ----------- | ------- | --------- |
