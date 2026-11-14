@@ -1,0 +1,245 @@
+/* ========================================
+   Fuentes
+   Servidas desde el proyecto, con su licencia OFL: nada se pide a un CDN
+   ======================================== */
+@font-face {
+  font-family: "Archivo Black";
+  src: url("./assets/fuentes/archivo-black-400.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Libre Franklin";
+  src: url("./assets/fuentes/libre-franklin-variable.woff2") format("woff2-variations");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Courier Prime";
+  src: url("./assets/fuentes/courier-prime-400.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Courier Prime";
+  src: url("./assets/fuentes/courier-prime-700.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* ========================================
+   Tokens
+   Sala a oscuras para la navegación, papel de programa para el trabajo
+   ======================================== */
+/* El panel es una herramienta: se lee de día, en una taquilla con luz. Por eso
+   el área de trabajo es clara y la oscuridad de la sala se queda en la barra
+   lateral y en la cartelera. El rojo del telón marca la acción principal y el oro señala dónde
+   estás. Todas las parejas de texto pasan 4.5:1. */
+:root {
+  --sala: #0d0c12;
+  --sala-alta: #18161f;
+  --sala-borde: #2a2733;
+  --sala-texto: #e9e6ef;
+  --sala-texto-suave: #a7a2b3;
+
+  --papel: #f5f2ec;
+  --superficie: #ffffff;
+  --superficie-suave: #faf8f4;
+  --borde: #e2dcd2;
+  --tinta: #1b1820;
+  --tinta-suave: #5c5766;
+
+  --telon: #b3182c;
+  --telon-hondo: #8e1424;
+  --telon-tenue: #f9e3e6;
+  --oro: #f5c45e;
+  --oro-tenue: #fbf0d6;
+  --reflector: #1d6aa8;
+  --reflector-tenue: #e3eef8;
+  --exito: #1e7a46;
+  --exito-tenue: #e2f2e8;
+  --apagado: #6b6676;
+  --apagado-tenue: #ecebef;
+
+  --fuente-titulos: "Archivo Black", "Arial Black", system-ui, sans-serif;
+  --fuente-texto: "Libre Franklin", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fuente-codigo: "Courier Prime", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  --radio: 10px;
+  --radio-grande: 16px;
+  --sombra: 0 1px 2px rgb(27 24 32 / 6%), 0 6px 18px rgb(27 24 32 / 6%);
+  --curva: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* Bootstrap, alineado con los tokens */
+  --bs-body-font-family: var(--fuente-texto);
+  --bs-body-bg: var(--papel);
+  --bs-body-color: var(--tinta);
+  --bs-secondary-color: var(--tinta-suave);
+  --bs-border-color: var(--borde);
+  --bs-link-color: var(--reflector);
+  --bs-link-color-rgb: 29, 106, 168;
+  --bs-link-hover-color: #154f7e;
+  --bs-focus-ring-color: rgb(29 106 168 / 35%);
+  --bs-border-radius: var(--radio);
+}
+
+/* ========================================
+   Base
+   ======================================== */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: var(--fuente-texto);
+  font-size: 1rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+.titulo-display {
+  font-family: var(--fuente-titulos);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+h3,
+h4 {
+  font-weight: 700;
+}
+
+code,
+.codigo {
+  font-family: var(--fuente-codigo);
+}
+
+.cifra {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 3px solid var(--reflector);
+  outline-offset: 2px;
+}
+
+.visualmente-oculto {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+}
+
+/* ========================================
+   Botones de Bootstrap con la paleta del teatro
+   ======================================== */
+.btn {
+  font-weight: 600;
+  transition:
+    transform 140ms var(--curva),
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--telon);
+  --bs-btn-border-color: var(--telon);
+  --bs-btn-hover-bg: var(--telon-hondo);
+  --bs-btn-hover-border-color: var(--telon-hondo);
+  --bs-btn-active-bg: var(--telon-hondo);
+  --bs-btn-active-border-color: var(--telon-hondo);
+  --bs-btn-disabled-bg: var(--telon);
+  --bs-btn-disabled-border-color: var(--telon);
+  --bs-btn-focus-shadow-rgb: 179, 24, 44;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--telon);
+  --bs-btn-border-color: var(--telon);
+  --bs-btn-hover-bg: var(--telon);
+  --bs-btn-hover-border-color: var(--telon);
+  --bs-btn-active-bg: var(--telon-hondo);
+  --bs-btn-active-border-color: var(--telon-hondo);
+  --bs-btn-disabled-color: var(--telon);
+  --bs-btn-disabled-border-color: var(--telon);
+  --bs-btn-focus-shadow-rgb: 179, 24, 44;
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: var(--tinta);
+  --bs-btn-border-color: #c9c2b6;
+  --bs-btn-hover-bg: var(--tinta);
+  --bs-btn-hover-border-color: var(--tinta);
+  --bs-btn-active-bg: var(--tinta);
+}
+
+.btn-sm {
+  --bs-btn-padding-y: 0.3rem;
+  --bs-btn-padding-x: 0.65rem;
+  --bs-btn-font-size: 0.85rem;
+}
+
+.form-control,
+.form-select {
+  border-color: #d3ccc0;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--reflector);
+  box-shadow: 0 0 0 0.2rem rgb(29 106 168 / 18%);
+}
+
+.form-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+}
+
+.form-text {
+  color: var(--tinta-suave);
+}
+
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-hover-bg: var(--superficie-suave);
+  margin-bottom: 0;
+}
+
+.table > thead th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tinta-suave);
+  font-weight: 700;
+  border-bottom-width: 1px;
+  white-space: nowrap;
+}
+
+.table td {
+  vertical-align: middle;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
