@@ -107,7 +107,7 @@ export default function DashboardPage() {
 
           <Outlet />
 
-          <footer className="panel-pie">Teatro Maldonado · Panel de gestión · React + Vite + Bootstrap 5.3</footer>
+          <footer className="panel-pie">Teatro Maldonado · Tunja, Boyacá</footer>
         </main>
       </div>
     </div>

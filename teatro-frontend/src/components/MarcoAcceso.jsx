@@ -19,7 +19,7 @@ export default function MarcoAcceso({ titulo, descripcion, children }) {
           <h1 id="acceso-titulo">{titulo}</h1>
           <p>{descripcion}</p>
           {children}
-          <p className="acceso-pie">Panel del teatro · React + Vite + Bootstrap · JWT</p>
+          <p className="acceso-pie">Teatro Maldonado · Tunja, Boyacá</p>
         </section>
       </main>
     </div>

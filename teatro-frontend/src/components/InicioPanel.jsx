@@ -31,7 +31,7 @@ export default function InicioPanel() {
             <dt>Rol</dt>
             <dd>{ETIQUETAS_ROL[usuario?.rol] ?? usuario?.rol}</dd>
             <dt>Sesión</dt>
-            <dd className="mb-0">JWT vigente, guardado solo en esta pestaña</dd>
+            <dd className="mb-0">Activa en esta pestaña; se cierra al cerrarla</dd>
           </dl>
         </section>
         <section className="tarjeta panel-dato" aria-labelledby="accesos-titulo">
